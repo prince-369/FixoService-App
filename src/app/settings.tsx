@@ -1,0 +1,170 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Linking, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
+
+import { Brand } from '@/lib/config';
+
+type PermResult = { granted: boolean; canAskAgain?: boolean };
+
+// Detect Expo Go. expo-notifications CANNOT be loaded in Expo Go (push was
+// removed in SDK 53+ and the module throws on import). So we skip it entirely
+// there and only use it in a development/production build.
+const isExpoGo =
+  Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
+
+const notifGet = async (): Promise<PermResult> => {
+  if (isExpoGo) return { granted: false, canAskAgain: false };
+  try {
+    const mod = await import('expo-notifications');
+    const r = await mod.getPermissionsAsync();
+    return { granted: r.granted, canAskAgain: r.canAskAgain };
+  } catch { return { granted: false }; }
+};
+const notifRequest = async (): Promise<PermResult> => {
+  if (isExpoGo) return { granted: false, canAskAgain: false };
+  try {
+    const mod = await import('expo-notifications');
+    const r = await mod.requestPermissionsAsync();
+    return { granted: r.granted, canAskAgain: r.canAskAgain };
+  } catch {
+    return { granted: false, canAskAgain: false };
+  }
+};
+
+const micGet = async (): Promise<PermResult> => {
+  try {
+    const mod = await import('expo-audio');
+    const r = await (mod as any).AudioModule.getRecordingPermissionsAsync();
+    return { granted: r.granted, canAskAgain: r.canAskAgain };
+  } catch { return { granted: false }; }
+};
+const micRequest = async (): Promise<PermResult> => {
+  try {
+    const mod = await import('expo-audio');
+    const r = await (mod as any).AudioModule.requestRecordingPermissionsAsync();
+    return { granted: r.granted, canAskAgain: r.canAskAgain };
+  } catch { return { granted: false }; }
+};
+
+interface PermDef {
+  key: string;
+  label: string;
+  desc: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  get: () => Promise<PermResult>;
+  request: () => Promise<PermResult>;
+}
+
+const PERMISSIONS: PermDef[] = [
+  { key: 'location', label: 'Location', desc: 'Find nearby workers & set service address', icon: 'location',
+    get: () => Location.getForegroundPermissionsAsync(), request: () => Location.requestForegroundPermissionsAsync() },
+  { key: 'notifications', label: 'Notifications', desc: 'Booking, bids and reward updates', icon: 'notifications',
+    get: notifGet, request: notifRequest },
+  { key: 'camera', label: 'Camera', desc: 'Take a profile photo', icon: 'camera',
+    get: () => ImagePicker.getCameraPermissionsAsync(), request: () => ImagePicker.requestCameraPermissionsAsync() },
+  { key: 'photos', label: 'Photos / Gallery', desc: 'Upload images from your gallery', icon: 'images',
+    get: () => ImagePicker.getMediaLibraryPermissionsAsync(), request: () => ImagePicker.requestMediaLibraryPermissionsAsync() },
+  { key: 'microphone', label: 'Microphone', desc: 'Record voice notes for bookings', icon: 'mic',
+    get: micGet, request: micRequest },
+];
+
+export default function SettingsScreen() {
+  const router = useRouter();
+  const [status, setStatus] = useState<Record<string, boolean>>({});
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    const next: Record<string, boolean> = {};
+    await Promise.all(PERMISSIONS.map(async (p) => {
+      try { next[p.key] = (await p.get()).granted; } catch { next[p.key] = false; }
+    }));
+    setStatus(next);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const toggle = async (p: PermDef, on: boolean) => {
+    if (on) {
+      const res = await p.request();
+      if (res.granted) {
+        setStatus((s) => ({ ...s, [p.key]: true }));
+      } else if (res.canAskAgain === false) {
+        Alert.alert('Permission blocked', `Please enable ${p.label} from your phone Settings.`, [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+        ]);
+      }
+    } else {
+      // Permissions can only be revoked from system settings.
+      Alert.alert('Manage permission', `To turn off ${p.label}, disable it in your phone Settings.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+      ]);
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <SafeAreaView edges={['top']} style={styles.topbar}>
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+            <Ionicons name="arrow-back" size={22} color={Brand.white} />
+          </TouchableOpacity>
+          <Text style={styles.topTitle}>Settings</Text>
+          <View style={{ width: 40 }} />
+        </View>
+      </SafeAreaView>
+
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.sectionLabel}>App Permissions</Text>
+        <View style={styles.card}>
+          {PERMISSIONS.map((p, i) => (
+            <View key={p.key}>
+              {i > 0 ? <View style={styles.divider} /> : null}
+              <View style={styles.row}>
+                <View style={styles.iconWrap}><Ionicons name={p.icon} size={19} color={Brand.navy} /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowLabel}>{p.label}</Text>
+                  <Text style={styles.rowDesc}>{p.desc}</Text>
+                </View>
+                <Switch
+                  value={!!status[p.key]}
+                  onValueChange={(v) => toggle(p, v)}
+                  trackColor={{ false: '#d1d5db', true: Brand.orange }}
+                  thumbColor={Brand.white}
+                  disabled={loading}
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+        <Text style={styles.note}>
+          Permissions are managed by your phone. Turning a permission off opens your system settings.
+        </Text>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Brand.bg },
+  topbar: { backgroundColor: Brand.navy },
+  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12, paddingTop: 4 },
+  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  topTitle: { flex: 1, color: Brand.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  scroll: { padding: 20 },
+  sectionLabel: { fontSize: 12, fontWeight: '800', color: Brand.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10, marginLeft: 4 },
+  card: { backgroundColor: Brand.card, borderRadius: 16, borderWidth: 1, borderColor: Brand.border, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  iconWrap: { height: 38, width: 38, borderRadius: 11, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center' },
+  rowLabel: { fontSize: 15, fontWeight: '700', color: Brand.text },
+  rowDesc: { fontSize: 12, color: Brand.textMuted, marginTop: 1 },
+  divider: { height: 1, backgroundColor: Brand.border, marginLeft: 68 },
+  note: { fontSize: 12, color: Brand.textLight, marginTop: 14, lineHeight: 17, paddingHorizontal: 4 },
+});

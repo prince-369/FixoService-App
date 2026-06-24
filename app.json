@@ -1,18 +1,21 @@
 {
   "expo": {
-    "name": "FixoService-App",
-    "slug": "FixoService-App",
+    "name": "Fixo Service",
+    "slug": "fixo-service",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "fixoserviceapp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "fixoservice",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.fixo.service",
+      "supportsTablet": true
     },
     "android": {
+      "package": "com.fixo.service",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0f1c3f",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -34,10 +37,15 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-image",
+      "expo-audio",
+      "expo-speech-recognition"
     ],
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": true
     }
   }
