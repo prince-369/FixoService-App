@@ -36,7 +36,6 @@ interface BookingDetail {
   status: string;
   workDescription?: string;
   amount: number;
-  cashSurcharge?: number;
   paymentMethod?: string;
   paymentStatus?: string;
   completionPin?: string;
@@ -183,7 +182,7 @@ export default function BookingDetailScreen() {
     setBusy(true);
     try {
       await api.post(`/booking/${id}/payment`, { method: 'cash' });
-      Alert.alert('Confirmed', 'Cash selected (includes ₹100 service fee). Pay after the work is done.');
+      Alert.alert('Confirmed', 'Cash payment selected. Pay after the work is done.');
       load();
     } catch (e) {
       Alert.alert('Failed', getApiError(e, 'Could not confirm'));
@@ -237,20 +236,29 @@ export default function BookingDetailScreen() {
           <Text style={styles.topTitle}>Booking Details</Text>
           <View style={{ width: 40 }} />
         </View>
+
+        {/* Status + amount hero */}
+        <View style={styles.statusCard}>
+          <View style={{ flex: 1 }}>
+            <View style={[styles.badge, { backgroundColor: st.bg }]}>
+              <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
+            </View>
+            <Text style={styles.statusHint}>{formatDateTime(booking.createdAt)}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.amountLabel}>Amount</Text>
+            <Text style={styles.amount}>{formatCurrency(booking.amount)}</Text>
+          </View>
+        </View>
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Status */}
-        <View style={styles.statusCard}>
-          <View style={[styles.badge, { backgroundColor: st.bg }]}>
-            <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
-          </View>
-          <Text style={styles.amount}>{formatCurrency(booking.amount + (booking.cashSurcharge || 0))}</Text>
-        </View>
-
         {/* Details */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Service Details</Text>
+          <View style={styles.cardHead}>
+            <Ionicons name="document-text-outline" size={18} color={Brand.navy} />
+            <Text style={styles.cardTitle}>Service Details</Text>
+          </View>
           <Text style={styles.detailText}>{booking.workDescription}</Text>
           {booking.customerLocation?.address ? (
             <View style={styles.locRow}>
@@ -258,13 +266,15 @@ export default function BookingDetailScreen() {
               <Text style={styles.locText}>{booking.customerLocation.address}</Text>
             </View>
           ) : null}
-          <Text style={styles.dateText}>{formatDateTime(booking.createdAt)}</Text>
         </View>
 
         {/* Assigned worker */}
         {booking.assignedWorker ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Your Worker</Text>
+            <View style={styles.cardHead}>
+              <Ionicons name="person-circle-outline" size={18} color={Brand.navy} />
+              <Text style={styles.cardTitle}>Your Worker</Text>
+            </View>
             <View style={styles.workerRow}>
               <View style={styles.wAvatar}><Text style={styles.wAvatarT}>{booking.assignedWorker.fullName?.charAt(0)}</Text></View>
               <View style={{ flex: 1 }}>
@@ -282,26 +292,27 @@ export default function BookingDetailScreen() {
         {['worker_accepted', 'worker_approved', 'payment_done', 'in_progress'].includes(booking.status)
           && booking.customerLocation?.coordinates && booking.customerLocation.coordinates.length === 2 ? (
           workerBusy ? (
-          <View style={styles.card}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="alert-circle" size={18} color="#d97706" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#92400e' }}>Worker is currently busy</Text>
-                <Text style={{ fontSize: 11.5, color: '#a16207', marginTop: 4, lineHeight: 17 }}>
-                  Your assigned worker is completing another job right now. Once that work is done, they will come to your location. Please be patient — your booking is confirmed.
-                </Text>
-              </View>
+          <View style={styles.busyCard}>
+            <View style={styles.busyIcon}>
+              <Ionicons name="alert-circle" size={18} color="#d97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.busyTitle}>Worker is currently busy</Text>
+              <Text style={styles.busyText}>
+                Your assigned worker is completing another job right now. Once that work is done, they will come to your location. Please be patient — your booking is confirmed.
+              </Text>
             </View>
           </View>
           ) : (
           <View style={styles.card}>
             <View style={styles.trackHead}>
-              <Text style={styles.cardTitle}>Live Tracking</Text>
+              <View style={styles.cardHead}>
+                <Ionicons name="navigate-outline" size={18} color={Brand.navy} />
+                <Text style={styles.cardTitle}>Live Tracking</Text>
+              </View>
               <View style={styles.liveDot}>
                 <View style={styles.liveDotInner} />
-                <Text style={styles.liveText}>{workerLoc ? 'Worker on the way' : 'Waiting for worker location'}</Text>
+                <Text style={styles.liveText}>{workerLoc ? 'Worker on the way' : 'Waiting for location'}</Text>
               </View>
             </View>
             <TrackingMap
@@ -319,11 +330,14 @@ export default function BookingDetailScreen() {
         {/* Bids */}
         {['finding_workers', 'bids_received'].includes(booking.status) ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Worker Bids ({workerBids.length})</Text>
+            <View style={styles.cardHead}>
+              <Ionicons name="pricetags-outline" size={18} color={Brand.navy} />
+              <Text style={styles.cardTitle}>Worker Bids ({workerBids.length})</Text>
+            </View>
             {workerBids.length === 0 ? (
               <View style={styles.waiting}>
                 <ActivityIndicator color={Brand.orange} size="small" />
-                <Text style={styles.waitingText}>Waiting for workers to bid...</Text>
+                <Text style={styles.waitingText}>Waiting for workers to bid…</Text>
               </View>
             ) : (
               workerBids.map((bid) => {
@@ -340,17 +354,31 @@ export default function BookingDetailScreen() {
                       <View style={styles.wAvatarSm}><Text style={styles.wAvatarSmT}>{w.fullName?.charAt(0)}</Text></View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.bidName}>{w.fullName}</Text>
-                        {ratingValue(w.rating) ? <Text style={styles.bidRating}>⭐ {ratingValue(w.rating)!.toFixed(1)}</Text> : null}
+                        {ratingValue(w.rating) ? (
+                          <View style={styles.bidRatingRow}>
+                            <Ionicons name="star" size={11} color="#f59e0b" />
+                            <Text style={styles.bidRating}>{ratingValue(w.rating)!.toFixed(1)}</Text>
+                          </View>
+                        ) : null}
                       </View>
                       <Text style={styles.bidPrice}>{formatCurrency(effective)}</Text>
                     </View>
 
                     {ns === 'worker_offered' && last ? (
-                      <Text style={styles.negHint}>💬 Worker countered to {formatCurrency(last.amount)}</Text>
+                      <View style={styles.negNotice}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={13} color={Brand.orangeDark} />
+                        <Text style={styles.negHint}>Worker countered to {formatCurrency(last.amount)}</Text>
+                      </View>
                     ) : ns === 'agreed' ? (
-                      <Text style={[styles.negHint, { color: Brand.success }]}>✓ Worker agreed to your price</Text>
+                      <View style={[styles.negNotice, { backgroundColor: Brand.successBg }]}>
+                        <Ionicons name="checkmark-circle" size={13} color={Brand.success} />
+                        <Text style={[styles.negHint, { color: Brand.success }]}>Worker agreed to your price</Text>
+                      </View>
                     ) : ns === 'customer_offered' ? (
-                      <Text style={styles.negHint}>⏳ Waiting for worker to respond to your offer…</Text>
+                      <View style={styles.negNotice}>
+                        <Ionicons name="time-outline" size={13} color={Brand.orangeDark} />
+                        <Text style={styles.negHint}>Waiting for worker to respond to your offer…</Text>
+                      </View>
                     ) : null}
 
                     {isNeg ? (
@@ -364,10 +392,12 @@ export default function BookingDetailScreen() {
                       </View>
                     ) : ns === 'customer_offered' ? null : (
                       <View style={styles.bidActions}>
-                        <TouchableOpacity style={styles.acceptBtn} onPress={() => acceptBid(bid._id)} disabled={busy}>
+                        <TouchableOpacity style={styles.acceptBtn} onPress={() => acceptBid(bid._id)} disabled={busy} activeOpacity={0.9}>
+                          <Ionicons name="checkmark" size={16} color={Brand.white} />
                           <Text style={styles.acceptT}>Accept {formatCurrency(effective)}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.negBtn} onPress={() => { setNegotiatingBidId(bid._id); setCounterAmount(String(effective)); }}>
+                        <TouchableOpacity style={styles.negBtn} onPress={() => { setNegotiatingBidId(bid._id); setCounterAmount(String(effective)); }} activeOpacity={0.9}>
+                          <Ionicons name="swap-vertical" size={16} color={Brand.navy} />
                           <Text style={styles.negBtnT}>Negotiate</Text>
                         </TouchableOpacity>
                       </View>
@@ -382,15 +412,21 @@ export default function BookingDetailScreen() {
         {/* Payment (worker approved) */}
         {booking.status === 'worker_approved' ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Payment</Text>
-            <Text style={styles.payAmount}>{formatCurrency(booking.amount)}</Text>
+            <View style={styles.cardHead}>
+              <Ionicons name="wallet-outline" size={18} color={Brand.navy} />
+              <Text style={styles.cardTitle}>Payment</Text>
+            </View>
+            <View style={styles.payAmountBox}>
+              <Text style={styles.payAmountLabel}>Total payable</Text>
+              <Text style={styles.payAmount}>{formatCurrency(booking.amount)}</Text>
+            </View>
             <TouchableOpacity style={styles.payOnlineBtn} onPress={payOnline} disabled={busy} activeOpacity={0.9}>
               <Ionicons name="card-outline" size={18} color={Brand.white} />
               <Text style={styles.payCashT}>Pay Online (UPI / Card)</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.payCashBtn} onPress={payCash} disabled={busy} activeOpacity={0.9}>
               <Ionicons name="cash-outline" size={18} color={Brand.navy} />
-              <Text style={styles.payCashTNavy}>Pay with Cash (+₹100 fee)</Text>
+              <Text style={styles.payCashTNavy}>Pay with Cash</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -398,14 +434,20 @@ export default function BookingDetailScreen() {
         {/* Completion code (payment done) — only after the worker requests it */}
         {['payment_done', 'in_progress'].includes(booking.status) ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Completion Code</Text>
+            <View style={styles.cardHead}>
+              <Ionicons name="key-outline" size={18} color={Brand.navy} />
+              <Text style={styles.cardTitle}>Completion Code</Text>
+            </View>
             {booking.completionRequestedByWorkerAt ? (
               <>
                 <Text style={styles.codeHint}>The worker has requested the completion code. Share it ONLY after the job is fully done.</Text>
                 {showPin && booking.completionPin ? (
-                  <View style={styles.pinBox}><Text style={styles.pinText}>{booking.completionPin}</Text></View>
+                  <View style={styles.pinBox}>
+                    <Text style={styles.pinLabel}>Your completion code</Text>
+                    <Text style={styles.pinText}>{booking.completionPin}</Text>
+                  </View>
                 ) : (
-                  <TouchableOpacity style={styles.revealBtn} onPress={revealCode} disabled={busy}>
+                  <TouchableOpacity style={styles.revealBtn} onPress={revealCode} disabled={busy} activeOpacity={0.9}>
                     <Ionicons name="eye-outline" size={18} color={Brand.navy} />
                     <Text style={styles.revealT}>Reveal Completion Code</Text>
                   </TouchableOpacity>
@@ -424,7 +466,9 @@ export default function BookingDetailScreen() {
         {booking.status === 'completed' ? (
           booking.review ? (
             <View style={styles.doneCard}>
-              <Ionicons name="checkmark-circle" size={36} color={Brand.success} />
+              <View style={styles.doneIcon}>
+                <Ionicons name="checkmark-circle" size={40} color={Brand.success} />
+              </View>
               <Text style={styles.doneText}>Job Completed</Text>
               <View style={{ flexDirection: 'row', gap: 3, marginTop: 6 }}>
                 {[1, 2, 3, 4, 5].map((s) => (
@@ -454,7 +498,7 @@ export default function BookingDetailScreen() {
                 onChangeText={setFeedback}
                 multiline
               />
-              <TouchableOpacity style={[styles.submitReviewBtn, busy && { opacity: 0.6 }]} onPress={submitReview} disabled={busy}>
+              <TouchableOpacity style={[styles.submitReviewBtn, busy && { opacity: 0.6 }]} onPress={submitReview} disabled={busy} activeOpacity={0.9}>
                 <Text style={styles.submitReviewT}>Submit Rating</Text>
               </TouchableOpacity>
             </View>
@@ -500,70 +544,82 @@ export default function BookingDetailScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Brand.bg },
-  topbar: { backgroundColor: Brand.navy },
-  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12, paddingTop: 4 },
+  topbar: { backgroundColor: Brand.navy, borderBottomLeftRadius: 26, borderBottomRightRadius: 26, paddingBottom: 18 },
+  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 4 },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   topTitle: { flex: 1, color: Brand.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  scroll: { padding: 20, paddingBottom: 40, gap: 14 },
-  statusCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Brand.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Brand.border },
-  badge: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
+  statusCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 18, padding: 16, marginHorizontal: 16, marginTop: 6 },
+  badge: { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
   badgeText: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
-  amount: { fontSize: 20, fontWeight: '900', color: Brand.text },
-  card: { backgroundColor: Brand.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Brand.border },
-  cardTitle: { fontSize: 14, fontWeight: '800', color: Brand.text, marginBottom: 10 },
-  trackHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  liveDot: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
+  statusHint: { fontSize: 12, color: '#cfd8ee', marginTop: 8 },
+  amountLabel: { fontSize: 11, color: '#cfd8ee', fontWeight: '600' },
+  amount: { fontSize: 24, fontWeight: '900', color: Brand.success, marginTop: 2 },
+  scroll: { padding: 16, paddingBottom: 40, gap: 14 },
+  card: { backgroundColor: Brand.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: Brand.text },
+  trackHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  liveDot: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   liveDotInner: { height: 8, width: 8, borderRadius: 4, backgroundColor: Brand.success },
   liveText: { fontSize: 11.5, color: Brand.success, fontWeight: '700' },
-  legendRow: { flexDirection: 'row', gap: 18, marginTop: 10 },
+  legendRow: { flexDirection: 'row', gap: 18, marginTop: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { height: 10, width: 10, borderRadius: 5 },
   legendText: { fontSize: 12, color: Brand.textMuted },
   detailText: { fontSize: 14, color: Brand.textMuted, lineHeight: 20 },
-  locRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  locRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
   locText: { fontSize: 13, color: Brand.textMuted, flex: 1 },
-  dateText: { fontSize: 12, color: Brand.textLight, marginTop: 8 },
+  busyCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#fffbeb', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#fde68a' },
+  busyIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center' },
+  busyTitle: { fontSize: 13.5, fontWeight: '800', color: '#92400e' },
+  busyText: { fontSize: 12, color: '#a16207', marginTop: 4, lineHeight: 18 },
   workerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  wAvatar: { height: 44, width: 44, borderRadius: 22, backgroundColor: Brand.navy, alignItems: 'center', justifyContent: 'center' },
-  wAvatarT: { color: Brand.white, fontWeight: '800', fontSize: 18 },
-  wName: { fontSize: 15, fontWeight: '700', color: Brand.text },
-  wPhone: { fontSize: 13, color: Brand.textMuted },
-  ratingPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#fffbeb', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  wAvatar: { height: 48, width: 48, borderRadius: 24, backgroundColor: Brand.navy, alignItems: 'center', justifyContent: 'center' },
+  wAvatarT: { color: Brand.white, fontWeight: '800', fontSize: 19 },
+  wName: { fontSize: 15.5, fontWeight: '800', color: Brand.text },
+  wPhone: { fontSize: 13, color: Brand.textMuted, marginTop: 2 },
+  ratingPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#fffbeb', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12 },
   ratingT: { fontSize: 12, fontWeight: '700', color: '#b45309' },
   waiting: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   waitingText: { fontSize: 13, color: Brand.textMuted },
-  bidCard: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: Brand.border },
-  bidTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  wAvatarSm: { height: 36, width: 36, borderRadius: 18, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center' },
-  wAvatarSmT: { color: Brand.navy, fontWeight: '800' },
-  bidName: { fontSize: 14, fontWeight: '700', color: Brand.text },
-  bidRating: { fontSize: 12, color: Brand.textMuted },
-  bidPrice: { fontSize: 16, fontWeight: '800', color: Brand.text },
-  negHint: { fontSize: 12.5, color: Brand.textMuted, marginTop: 8, fontWeight: '600' },
-  bidActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  acceptBtn: { flex: 1, backgroundColor: Brand.success, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  acceptT: { color: Brand.white, fontSize: 13, fontWeight: '800' },
-  negBtn: { backgroundColor: Brand.navy50, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, alignItems: 'center' },
-  negBtnT: { color: Brand.navy, fontSize: 13, fontWeight: '800' },
-  negInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  amtInput: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 10, paddingHorizontal: 12 },
+  bidCard: { padding: 14, borderRadius: 16, backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, marginBottom: 10 },
+  bidTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  wAvatarSm: { height: 42, width: 42, borderRadius: 21, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center' },
+  wAvatarSmT: { color: Brand.navy, fontWeight: '800', fontSize: 16 },
+  bidName: { fontSize: 14.5, fontWeight: '800', color: Brand.text },
+  bidRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  bidRating: { fontSize: 12, color: Brand.textMuted, fontWeight: '600' },
+  bidPrice: { fontSize: 18, fontWeight: '900', color: Brand.success },
+  negNotice: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Brand.orange50, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 10 },
+  negHint: { fontSize: 12.5, color: Brand.orangeDark, fontWeight: '700', flex: 1 },
+  bidActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  acceptBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Brand.success, borderRadius: 12, paddingVertical: 12 },
+  acceptT: { color: Brand.white, fontSize: 13.5, fontWeight: '800' },
+  negBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Brand.navy50, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16 },
+  negBtnT: { color: Brand.navy, fontSize: 13.5, fontWeight: '800' },
+  negInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  amtInput: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, borderRadius: 12, paddingHorizontal: 12 },
   rupee: { fontSize: 15, fontWeight: '800', color: Brand.textMuted },
-  amtField: { flex: 1, paddingVertical: 10, paddingLeft: 4, fontSize: 15, fontWeight: '700', color: Brand.text },
-  sendBtn: { backgroundColor: Brand.orange, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 16 },
+  amtField: { flex: 1, paddingVertical: 11, paddingLeft: 4, fontSize: 15, fontWeight: '700', color: Brand.text },
+  sendBtn: { backgroundColor: Brand.orange, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 18 },
   sendT: { color: Brand.white, fontSize: 13, fontWeight: '800' },
   cancelNeg: { padding: 8 },
-  payAmount: { fontSize: 24, fontWeight: '900', color: Brand.text, marginBottom: 12 },
+  payAmountBox: { backgroundColor: Brand.successBg, borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 14 },
+  payAmountLabel: { fontSize: 12, color: Brand.textMuted, fontWeight: '600' },
+  payAmount: { fontSize: 28, fontWeight: '900', color: Brand.success, marginTop: 2 },
   payOnlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.orange, borderRadius: 14, paddingVertical: 15, marginBottom: 10 },
   payCashBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.card, borderWidth: 1.5, borderColor: Brand.navy, borderRadius: 14, paddingVertical: 15 },
   payCashT: { color: Brand.white, fontSize: 14.5, fontWeight: '800' },
   payCashTNavy: { color: Brand.navy, fontSize: 14.5, fontWeight: '800' },
-  codeHint: { fontSize: 12.5, color: Brand.textMuted, marginBottom: 12, lineHeight: 18 },
+  codeHint: { fontSize: 12.5, color: Brand.textMuted, marginBottom: 14, lineHeight: 18 },
   revealBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.navy50, borderRadius: 14, paddingVertical: 14 },
   revealT: { color: Brand.navy, fontSize: 14, fontWeight: '800' },
-  pinBox: { backgroundColor: Brand.navy, borderRadius: 14, paddingVertical: 18, alignItems: 'center' },
-  pinText: { color: Brand.white, fontSize: 32, fontWeight: '900', letterSpacing: 8 },
-  doneCard: { alignItems: 'center', gap: 4, backgroundColor: Brand.successBg, borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#a7f3d0' },
-  doneText: { fontSize: 16, fontWeight: '800', color: Brand.success },
+  pinBox: { backgroundColor: Brand.navy, borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
+  pinLabel: { color: '#cfd8ee', fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  pinText: { color: Brand.white, fontSize: 34, fontWeight: '900', letterSpacing: 8 },
+  doneCard: { alignItems: 'center', gap: 4, backgroundColor: Brand.successBg, borderRadius: 18, padding: 24, borderWidth: 1, borderColor: '#a7f3d0' },
+  doneIcon: { width: 64, height: 64, borderRadius: 22, backgroundColor: Brand.white, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  doneText: { fontSize: 17, fontWeight: '800', color: Brand.success },
   thanksText: { fontSize: 12.5, color: Brand.textMuted, marginTop: 4 },
   waitRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   waitText: { flex: 1, fontSize: 13, color: Brand.textMuted, lineHeight: 18 },
@@ -571,9 +627,9 @@ const styles = StyleSheet.create({
   doneHeadText: { fontSize: 15, fontWeight: '800', color: Brand.text, flex: 1 },
   starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 14 },
   feedbackInput: { backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 12, padding: 14, fontSize: 14, color: Brand.text, height: 80, textAlignVertical: 'top' },
-  submitReviewBtn: { backgroundColor: Brand.orange, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
+  submitReviewBtn: { backgroundColor: Brand.orange, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 12 },
   submitReviewT: { color: Brand.white, fontSize: 15, fontWeight: '800' },
-  cancelBookingBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.dangerBg, borderRadius: 14, paddingVertical: 14, borderWidth: 1, borderColor: '#fecaca' },
+  cancelBookingBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.dangerBg, borderRadius: 16, paddingVertical: 15, borderWidth: 1, borderColor: '#fecaca' },
   cancelBookingT: { color: Brand.danger, fontSize: 14.5, fontWeight: '800' },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: Brand.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },

@@ -64,7 +64,7 @@ export default function EditProfileScreen() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.topbar}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.back} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={22} color={Brand.white} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Edit Profile</Text>
@@ -73,30 +73,39 @@ export default function EditProfileScreen() {
       </SafeAreaView>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={styles.avatarWrap} onPress={pickPhoto} activeOpacity={0.8}>
-            {avatar ? (
-              <Image source={{ uri: avatar }} style={styles.avatarImg} />
-            ) : (
-              <Text style={styles.avatarText}>{(user?.fullName || 'U').charAt(0).toUpperCase()}</Text>
-            )}
-            <View style={styles.cameraBadge}><Ionicons name="camera" size={15} color={Brand.white} /></View>
-          </TouchableOpacity>
-          <Text style={styles.changePhoto}>Tap to change photo</Text>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {/* Avatar */}
+          <View style={styles.avatarCard}>
+            <TouchableOpacity style={styles.avatarWrap} onPress={pickPhoto} activeOpacity={0.8}>
+              {avatar ? (
+                <Image source={{ uri: avatar }} style={styles.avatarImg} />
+              ) : (
+                <Text style={styles.avatarText}>{(user?.fullName || 'U').charAt(0).toUpperCase()}</Text>
+              )}
+              <View style={styles.cameraBadge}><Ionicons name="camera" size={15} color={Brand.white} /></View>
+            </TouchableOpacity>
+            <Text style={styles.changePhoto}>Tap to change photo</Text>
+          </View>
 
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Your name" placeholderTextColor={Brand.textLight} />
+          {/* Form card */}
+          <View style={styles.formCard}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Your name" placeholderTextColor={Brand.textLight} />
 
-          <Text style={styles.label}>Phone</Text>
-          <View style={[styles.input, styles.disabledInput]}><Text style={styles.disabledText}>{user?.phone}</Text></View>
+            <Text style={styles.label}>Phone</Text>
+            <View style={[styles.input, styles.disabledInput]}>
+              <Ionicons name="lock-closed" size={14} color={Brand.textLight} />
+              <Text style={styles.disabledText}>{user?.phone}</Text>
+            </View>
 
-          <Text style={styles.label}>Bio</Text>
-          <TextInput style={[styles.input, styles.textarea]} value={bio} onChangeText={setBio} placeholder="A short intro..." placeholderTextColor={Brand.textLight} multiline />
+            <Text style={styles.label}>Bio</Text>
+            <TextInput style={[styles.input, styles.textarea]} value={bio} onChangeText={setBio} placeholder="A short intro..." placeholderTextColor={Brand.textLight} multiline />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>
-        <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
+        <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving} activeOpacity={0.85}>
           {saving ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.saveText}>Save Changes</Text>}
         </TouchableOpacity>
       </SafeAreaView>
@@ -106,22 +115,33 @@ export default function EditProfileScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.bg },
-  topbar: { backgroundColor: Brand.navy },
-  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12, paddingTop: 4 },
-  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { flex: 1, color: Brand.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  scroll: { padding: 20, alignItems: 'stretch' },
-  avatarWrap: { alignSelf: 'center', height: 100, width: 100, borderRadius: 50, backgroundColor: Brand.navy, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  topbar: {
+    backgroundColor: Brand.navy,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: Brand.navy,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 16, paddingTop: 4 },
+  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)' },
+  topTitle: { flex: 1, color: Brand.white, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  scroll: { padding: 16, paddingBottom: 30 },
+  avatarCard: { alignItems: 'center', backgroundColor: Brand.card, borderRadius: 20, borderWidth: 1, borderColor: Brand.border, paddingVertical: 22, marginBottom: 16, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  avatarWrap: { height: 100, width: 100, borderRadius: 50, backgroundColor: Brand.navy, alignItems: 'center', justifyContent: 'center' },
   avatarImg: { height: 100, width: 100, borderRadius: 50 },
   avatarText: { color: Brand.white, fontSize: 40, fontWeight: '800' },
-  cameraBadge: { position: 'absolute', bottom: 0, right: 0, height: 32, width: 32, borderRadius: 16, backgroundColor: Brand.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: Brand.bg },
-  changePhoto: { textAlign: 'center', color: Brand.textMuted, fontSize: 13, marginTop: 10, marginBottom: 6 },
-  label: { fontSize: 12, fontWeight: '800', color: Brand.textMuted, marginTop: 18, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: Brand.text },
-  disabledInput: { backgroundColor: '#f1f2f6', justifyContent: 'center' },
+  cameraBadge: { position: 'absolute', bottom: 0, right: 0, height: 32, width: 32, borderRadius: 16, backgroundColor: Brand.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: Brand.card },
+  changePhoto: { textAlign: 'center', color: Brand.textMuted, fontSize: 13, marginTop: 12, fontWeight: '600' },
+  formCard: { backgroundColor: Brand.card, borderRadius: 20, borderWidth: 1, borderColor: Brand.border, padding: 18, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  label: { fontSize: 12, fontWeight: '800', color: Brand.textMuted, marginTop: 16, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: Brand.text },
+  disabledInput: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f1f2f6' },
   disabledText: { fontSize: 15, color: Brand.textLight },
   textarea: { height: 90, textAlignVertical: 'top' },
   footer: { backgroundColor: Brand.card, borderTopWidth: 1, borderTopColor: Brand.border, paddingHorizontal: 20, paddingTop: 12 },
-  saveBtn: { backgroundColor: Brand.orange, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
+  saveBtn: { backgroundColor: Brand.orange, borderRadius: 16, paddingVertical: 16, alignItems: 'center', shadowColor: Brand.orange, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   saveText: { color: Brand.white, fontSize: 16, fontWeight: '800' },
 });

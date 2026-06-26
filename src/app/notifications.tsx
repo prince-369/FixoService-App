@@ -27,6 +27,15 @@ const iconFor = (type?: string): keyof typeof Ionicons.glyphMap => {
   return 'notifications';
 };
 
+// Friendly accent colour per notification type.
+const colorFor = (type?: string): { color: string; bg: string } => {
+  if (type?.includes('bid')) return { color: Brand.orange, bg: Brand.orange50 };
+  if (type?.includes('payment')) return { color: Brand.success, bg: Brand.successBg };
+  if (type?.includes('reward')) return { color: '#7c3aed', bg: '#ede9fe' };
+  if (type?.includes('complete') || type?.includes('work')) return { color: Brand.success, bg: Brand.successBg };
+  return { color: Brand.navy, bg: Brand.navy50 };
+};
+
 export default function NotificationsScreen() {
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
@@ -69,13 +78,16 @@ export default function NotificationsScreen() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.topbar}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.back} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={22} color={Brand.white} />
           </TouchableOpacity>
-          <Text style={styles.topTitle}>Notifications</Text>
+          <View style={styles.titleWrap}>
+            <Text style={styles.topTitle}>Notifications</Text>
+            {unread > 0 ? <Text style={styles.topSub}>{unread} unread</Text> : null}
+          </View>
           {unread > 0 ? (
-            <TouchableOpacity onPress={markAll}><Text style={styles.readAll}>Read all</Text></TouchableOpacity>
-          ) : <View style={{ width: 56 }} />}
+            <TouchableOpacity onPress={markAll} style={styles.readAllBtn} activeOpacity={0.7}><Text style={styles.readAll}>Read all</Text></TouchableOpacity>
+          ) : <View style={{ width: 64 }} />}
         </View>
       </SafeAreaView>
 
@@ -86,24 +98,29 @@ export default function NotificationsScreen() {
           data={items}
           keyExtractor={(n) => n._id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Brand.orange} />}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={[styles.card, !item.isRead && styles.cardUnread]} onPress={() => markRead(item._id)} activeOpacity={0.8}>
-              <View style={[styles.iconWrap, !item.isRead && { backgroundColor: Brand.orange50 }]}>
-                <Ionicons name={iconFor(item.type)} size={18} color={!item.isRead ? Brand.orange : Brand.textLight} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.msg}>{item.message}</Text>
-                <Text style={styles.time}>{formatDateTime(item.createdAt)}</Text>
-              </View>
-              {!item.isRead ? <View style={styles.dot} /> : null}
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const accent = colorFor(item.type);
+            return (
+              <TouchableOpacity style={[styles.card, !item.isRead && styles.cardUnread]} onPress={() => markRead(item._id)} activeOpacity={0.8}>
+                <View style={[styles.iconWrap, { backgroundColor: accent.bg }]}>
+                  <Ionicons name={iconFor(item.type)} size={18} color={accent.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.title}>{item.title}</Text>
+                  <Text style={styles.msg}>{item.message}</Text>
+                  <Text style={styles.time}>{formatDateTime(item.createdAt)}</Text>
+                </View>
+                {!item.isRead ? <View style={styles.dot} /> : null}
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="notifications-off-outline" size={48} color={Brand.textLight} />
-              <Text style={styles.emptyText}>No notifications yet</Text>
+              <View style={styles.emptyIcon}><Ionicons name="notifications-off-outline" size={44} color={Brand.textLight} /></View>
+              <Text style={styles.emptyTitle}>You&apos;re all caught up</Text>
+              <Text style={styles.emptySub}>New booking, bid and reward updates will appear here.</Text>
             </View>
           }
         />
@@ -114,19 +131,33 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.bg },
-  topbar: { backgroundColor: Brand.navy },
-  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12, paddingTop: 4 },
-  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { flex: 1, color: Brand.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  readAll: { color: Brand.orange, fontSize: 13, fontWeight: '700', width: 56, textAlign: 'right' },
-  list: { padding: 16, gap: 10 },
-  card: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: Brand.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Brand.border },
+  topbar: {
+    backgroundColor: Brand.navy,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: Brand.navy,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 16, paddingTop: 4 },
+  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)' },
+  titleWrap: { flex: 1, alignItems: 'center' },
+  topTitle: { color: Brand.white, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  topSub: { color: 'rgba(255,255,255,0.7)', fontSize: 11.5, fontWeight: '600', marginTop: 1 },
+  readAllBtn: { width: 64, alignItems: 'flex-end' },
+  readAll: { color: Brand.amber, fontSize: 13, fontWeight: '800' },
+  list: { padding: 16, paddingBottom: 40, gap: 10, flexGrow: 1 },
+  card: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: Brand.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   cardUnread: { borderColor: '#fed7aa', backgroundColor: '#fffdf9' },
-  iconWrap: { height: 38, width: 38, borderRadius: 10, backgroundColor: Brand.bg, alignItems: 'center', justifyContent: 'center' },
+  iconWrap: { height: 40, width: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 14.5, fontWeight: '700', color: Brand.text },
   msg: { fontSize: 13, color: Brand.textMuted, marginTop: 2, lineHeight: 18 },
   time: { fontSize: 11, color: Brand.textLight, marginTop: 6 },
   dot: { height: 9, width: 9, borderRadius: 5, backgroundColor: Brand.orange, marginTop: 4 },
-  empty: { alignItems: 'center', marginTop: 80, gap: 10 },
-  emptyText: { fontSize: 15, color: Brand.textMuted },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 70, paddingHorizontal: 40 },
+  emptyIcon: { height: 84, width: 84, borderRadius: 42, backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: Brand.text },
+  emptySub: { fontSize: 13, color: Brand.textMuted, marginTop: 6, textAlign: 'center', lineHeight: 19 },
 });

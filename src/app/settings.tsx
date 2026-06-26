@@ -109,11 +109,13 @@ export default function SettingsScreen() {
     }
   };
 
+  const appVersion = Constants.expoConfig?.version || (Constants as any).manifest?.version || '1.0.0';
+
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.topbar}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.back} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={22} color={Brand.white} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Settings</Text>
@@ -121,7 +123,7 @@ export default function SettingsScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionLabel}>App Permissions</Text>
         <View style={styles.card}>
           {PERMISSIONS.map((p, i) => (
@@ -147,6 +149,18 @@ export default function SettingsScreen() {
         <Text style={styles.note}>
           Permissions are managed by your phone. Turning a permission off opens your system settings.
         </Text>
+
+        <Text style={styles.sectionLabel}>About</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.iconWrap}><Ionicons name="information-circle" size={19} color={Brand.navy} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>App Version</Text>
+              <Text style={styles.rowDesc}>You&apos;re on the latest experience</Text>
+            </View>
+            <Text style={styles.versionText}>{appVersion}</Text>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -154,17 +168,27 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.bg },
-  topbar: { backgroundColor: Brand.navy },
-  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 12, paddingTop: 4 },
-  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { flex: 1, color: Brand.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  scroll: { padding: 20 },
-  sectionLabel: { fontSize: 12, fontWeight: '800', color: Brand.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10, marginLeft: 4 },
-  card: { backgroundColor: Brand.card, borderRadius: 16, borderWidth: 1, borderColor: Brand.border, overflow: 'hidden' },
+  topbar: {
+    backgroundColor: Brand.navy,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: Brand.navy,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 16, paddingTop: 4 },
+  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)' },
+  topTitle: { flex: 1, color: Brand.white, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  scroll: { padding: 16, paddingBottom: 40 },
+  sectionLabel: { fontSize: 12, fontWeight: '800', color: Brand.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10, marginTop: 22, marginLeft: 4 },
+  card: { backgroundColor: Brand.card, borderRadius: 18, borderWidth: 1, borderColor: Brand.border, overflow: 'hidden', shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
-  iconWrap: { height: 38, width: 38, borderRadius: 11, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center' },
+  iconWrap: { height: 40, width: 40, borderRadius: 12, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center' },
   rowLabel: { fontSize: 15, fontWeight: '700', color: Brand.text },
   rowDesc: { fontSize: 12, color: Brand.textMuted, marginTop: 1 },
-  divider: { height: 1, backgroundColor: Brand.border, marginLeft: 68 },
+  versionText: { fontSize: 13, fontWeight: '800', color: Brand.textMuted },
+  divider: { height: 1, backgroundColor: Brand.border, marginLeft: 70 },
   note: { fontSize: 12, color: Brand.textLight, marginTop: 14, lineHeight: 17, paddingHorizontal: 4 },
 });

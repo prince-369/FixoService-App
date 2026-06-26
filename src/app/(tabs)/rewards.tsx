@@ -91,50 +91,84 @@ export default function RewardsScreen() {
     return <View style={[styles.cBadge, { backgroundColor: s.b }]}><Text style={[styles.cBadgeT, { color: s.c }]}>{s.t}</Text></View>;
   };
 
+  const claimableCount = milestones.filter((m) => m.claimable && !m.claimed).length;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.heading}>Rewards</Text>
-
-        <LinearGradient colors={[Brand.navy, '#1a2d5a']} style={styles.hero}>
+        {/* Celebratory green hero */}
+        <LinearGradient colors={[Brand.success, '#059669']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <View style={styles.heroRow}>
-            <Ionicons name="gift" size={20} color={Brand.white} />
+            <View style={styles.heroIcon}><Ionicons name="gift" size={20} color={Brand.white} /></View>
             <Text style={styles.heroLabel}>FIXO REWARDS</Text>
           </View>
           <Text style={styles.heroNum}>{completed}</Text>
-          <Text style={styles.heroSub}>completed bookings</Text>
+          <Text style={styles.heroSub}>completed bookings 🎉</Text>
 
           {nextM ? (
             <View style={styles.progressBox}>
               <View style={styles.progressTop}>
-                <Text style={styles.progressLabel}>Next: {nextM.label} ({formatCurrency(nextM.rewardAmount)})</Text>
+                <Text style={styles.progressLabel} numberOfLines={1}>Next: {nextM.label} · {formatCurrency(nextM.rewardAmount)}</Text>
                 <Text style={styles.progressCount}>{completed}/{nextM.bookingsRequired}</Text>
               </View>
               <View style={styles.track}>
                 <View style={[styles.fill, { width: `${nextM.progressPercent}%` }]} />
               </View>
+              <Text style={styles.progressHint}>
+                {Math.max(nextM.bookingsRequired - completed, 0)} more booking{nextM.bookingsRequired - completed === 1 ? '' : 's'} to unlock
+              </Text>
             </View>
           ) : (
-            <Text style={styles.allDone}>🎉 All milestones unlocked!</Text>
+            <View style={styles.allDoneBox}>
+              <Ionicons name="sparkles" size={16} color={Brand.white} />
+              <Text style={styles.allDone}>All milestones unlocked!</Text>
+            </View>
           )}
-          {totalClaimed > 0 ? <Text style={styles.earned}>Total earned: {formatCurrency(totalClaimed)}</Text> : null}
         </LinearGradient>
+
+        {/* Total earned card */}
+        {totalClaimed > 0 ? (
+          <View style={styles.earnedCard}>
+            <View style={styles.earnedIcon}><Ionicons name="cash" size={20} color={Brand.success} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.earnedLabel}>Total Rewards Earned</Text>
+              <Text style={styles.earnedValue}>{formatCurrency(totalClaimed)}</Text>
+            </View>
+            <View style={styles.earnedBadge}><Text style={styles.earnedBadgeT}>Yours 💚</Text></View>
+          </View>
+        ) : null}
+
+        {/* Milestones section */}
+        <View style={styles.sectionHead}>
+          <Text style={styles.sectionTitle}>Milestones</Text>
+          {claimableCount > 0 ? (
+            <View style={styles.readyChip}><Text style={styles.readyChipT}>{claimableCount} ready</Text></View>
+          ) : milestones.length > 0 ? (
+            <Text style={styles.sectionCount}>{milestones.length}</Text>
+          ) : null}
+        </View>
 
         {loading ? (
           <ActivityIndicator color={Brand.orange} style={{ marginTop: 30 }} />
+        ) : milestones.length === 0 ? (
+          <View style={styles.empty}>
+            <View style={styles.emptyIcon}><Ionicons name="trophy-outline" size={36} color={Brand.textLight} /></View>
+            <Text style={styles.emptyTitle}>No milestones yet</Text>
+            <Text style={styles.emptySub}>Complete bookings to start earning rewards.</Text>
+          </View>
         ) : (
-          <View style={{ gap: 12, marginTop: 20 }}>
+          <View style={{ gap: 12 }}>
             {milestones.map((m) => (
-              <View key={m.key} style={[styles.mCard, m.claimable && styles.mCardActive]}>
+              <View key={m.key} style={[styles.mCard, m.claimable && !m.claimed && styles.mCardActive]}>
                 <View style={styles.mTop}>
                   <View style={[styles.trophy, { backgroundColor: m.achieved ? Brand.successBg : Brand.bg }]}>
-                    <Ionicons name="trophy" size={20} color={m.achieved ? Brand.success : Brand.textLight} />
+                    <Ionicons name="trophy" size={22} color={m.achieved ? Brand.success : Brand.textLight} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.mLabel}>{m.label}</Text>
                     <Text style={styles.mReq}>{m.bookingsRequired} completed bookings</Text>
                   </View>
-                  <Text style={styles.mAmount}>{formatCurrency(m.rewardAmount)}</Text>
+                  <Text style={[styles.mAmount, m.achieved && { color: Brand.success }]}>{formatCurrency(m.rewardAmount)}</Text>
                 </View>
 
                 <View style={styles.trackSm}>
@@ -146,9 +180,10 @@ export default function RewardsScreen() {
                 ) : null}
 
                 <View style={styles.mBottom}>
-                  <Text style={styles.mProg}>{completed}/{m.bookingsRequired}</Text>
+                  <Text style={styles.mProg}>{completed}/{m.bookingsRequired} bookings</Text>
                   {m.claimed ? claimBadge(m.claimStatus) : m.claimable ? (
-                    <TouchableOpacity style={styles.claimBtn} onPress={() => setClaimM(m)}>
+                    <TouchableOpacity style={styles.claimBtn} activeOpacity={0.85} onPress={() => setClaimM(m)}>
+                      <Ionicons name="gift" size={14} color={Brand.white} />
                       <Text style={styles.claimBtnT}>{m.claimStatus === 'rejected' ? 'Claim Again' : `Claim ${formatCurrency(m.rewardAmount)}`}</Text>
                     </TouchableOpacity>
                   ) : (
@@ -165,6 +200,7 @@ export default function RewardsScreen() {
       <Modal visible={!!claimM} transparent animationType="slide" onRequestClose={() => setClaimM(null)}>
         <View style={styles.modalBg}>
           <View style={styles.modalCard}>
+            <View style={styles.modalIcon}><Ionicons name="gift" size={26} color={Brand.success} /></View>
             <Text style={styles.modalTitle}>Claim {formatCurrency(claimM?.rewardAmount)}</Text>
             <Text style={styles.modalSub}>Enter your bank details. Reward transfers within 24 hours.</Text>
             {[
@@ -191,46 +227,63 @@ export default function RewardsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Brand.bg },
   scroll: { padding: 20, paddingBottom: 40 },
-  heading: { fontSize: 22, fontWeight: '800', color: Brand.text, marginBottom: 16 },
   hero: { borderRadius: 22, padding: 22 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  heroLabel: { color: '#aab8d8', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  heroNum: { color: Brand.white, fontSize: 40, fontWeight: '900', marginTop: 10 },
-  heroSub: { color: '#aab8d8', fontSize: 13 },
-  progressBox: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 14, padding: 12, marginTop: 16 },
-  progressTop: { flexDirection: 'row', justifyContent: 'space-between' },
-  progressLabel: { color: '#dbe3f4', fontSize: 11.5, flex: 1 },
-  progressCount: { color: Brand.white, fontSize: 11.5, fontWeight: '800' },
-  track: { height: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4, marginTop: 8, overflow: 'hidden' },
-  fill: { height: 8, backgroundColor: Brand.orange, borderRadius: 4 },
-  allDone: { color: '#6ee7b7', fontSize: 14, fontWeight: '700', marginTop: 14 },
-  earned: { color: '#aab8d8', fontSize: 12, marginTop: 12 },
-  mCard: { backgroundColor: Brand.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Brand.border },
-  mCardActive: { borderColor: '#a7f3d0' },
+  heroIcon: { height: 34, width: 34, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  heroLabel: { color: 'rgba(255,255,255,0.95)', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  heroNum: { color: Brand.white, fontSize: 44, fontWeight: '900', marginTop: 12 },
+  heroSub: { color: 'rgba(255,255,255,0.9)', fontSize: 13.5, fontWeight: '600' },
+  progressBox: { backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 14, padding: 14, marginTop: 18 },
+  progressTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  progressLabel: { color: Brand.white, fontSize: 12, fontWeight: '700', flex: 1 },
+  progressCount: { color: Brand.white, fontSize: 12, fontWeight: '800' },
+  track: { height: 9, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 5, marginTop: 10, overflow: 'hidden' },
+  fill: { height: 9, backgroundColor: Brand.white, borderRadius: 5 },
+  progressHint: { color: 'rgba(255,255,255,0.9)', fontSize: 11.5, fontWeight: '600', marginTop: 8 },
+  allDoneBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 14, padding: 14, marginTop: 18 },
+  allDone: { color: Brand.white, fontSize: 14, fontWeight: '800' },
+  earnedCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Brand.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Brand.border, marginTop: 14 },
+  earnedIcon: { height: 42, width: 42, borderRadius: 13, backgroundColor: Brand.successBg, alignItems: 'center', justifyContent: 'center' },
+  earnedLabel: { fontSize: 12.5, fontWeight: '700', color: Brand.textMuted },
+  earnedValue: { fontSize: 20, fontWeight: '900', color: Brand.success, marginTop: 2 },
+  earnedBadge: { backgroundColor: Brand.successBg, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  earnedBadgeT: { color: '#047857', fontSize: 11.5, fontWeight: '800' },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, marginBottom: 14 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: Brand.text },
+  sectionCount: { fontSize: 12, fontWeight: '700', color: Brand.orange, backgroundColor: Brand.orange50, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
+  readyChip: { backgroundColor: Brand.successBg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  readyChipT: { fontSize: 11.5, fontWeight: '800', color: '#047857' },
+  empty: { alignItems: 'center', marginTop: 30, gap: 6, paddingHorizontal: 30 },
+  emptyIcon: { height: 84, width: 84, borderRadius: 42, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: Brand.text },
+  emptySub: { fontSize: 13.5, color: Brand.textMuted, textAlign: 'center' },
+  mCard: { backgroundColor: Brand.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Brand.border },
+  mCardActive: { borderColor: Brand.success, borderWidth: 1.5 },
   mTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  trophy: { height: 44, width: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  mLabel: { fontSize: 15, fontWeight: '800', color: Brand.text },
+  trophy: { height: 46, width: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  mLabel: { fontSize: 15.5, fontWeight: '800', color: Brand.text },
   mReq: { fontSize: 12, color: Brand.textMuted, marginTop: 1 },
-  mAmount: { fontSize: 16, fontWeight: '800', color: Brand.text },
-  trackSm: { height: 7, backgroundColor: Brand.bg, borderRadius: 4, marginTop: 12, overflow: 'hidden' },
-  fillSm: { height: 7, borderRadius: 4 },
+  mAmount: { fontSize: 16.5, fontWeight: '900', color: Brand.text },
+  trackSm: { height: 8, backgroundColor: Brand.bg, borderRadius: 4, marginTop: 14, overflow: 'hidden' },
+  fillSm: { height: 8, borderRadius: 4 },
   rejectNote: { fontSize: 11.5, color: Brand.danger, marginTop: 8 },
   mBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  mProg: { fontSize: 12, color: Brand.textMuted },
-  claimBtn: { backgroundColor: Brand.orange, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  mProg: { fontSize: 12, color: Brand.textMuted, fontWeight: '600' },
+  claimBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Brand.success, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   claimBtnT: { color: Brand.white, fontSize: 12.5, fontWeight: '800' },
   lockRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  lockT: { fontSize: 12, color: Brand.textLight },
+  lockT: { fontSize: 12, color: Brand.textLight, fontWeight: '600' },
   cBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   cBadgeT: { fontSize: 10.5, fontWeight: '800', textTransform: 'uppercase' },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: Brand.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: Brand.text },
+  modalIcon: { height: 52, width: 52, borderRadius: 16, backgroundColor: Brand.successBg, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  modalTitle: { fontSize: 19, fontWeight: '800', color: Brand.text },
   modalSub: { fontSize: 13, color: Brand.textMuted, marginTop: 4, marginBottom: 14 },
   mInput: { backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, fontSize: 14.5, color: Brand.text, marginBottom: 10 },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 8 },
   cancelBtn: { flex: 1, borderWidth: 1, borderColor: Brand.border, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   cancelT: { color: Brand.textMuted, fontWeight: '700' },
-  submitBtn: { flex: 1, backgroundColor: Brand.orange, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  submitBtn: { flex: 1, backgroundColor: Brand.success, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   submitT: { color: Brand.white, fontWeight: '800' },
 });

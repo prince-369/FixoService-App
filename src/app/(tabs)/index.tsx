@@ -85,8 +85,11 @@ export default function HomeScreen() {
           <ActivityIndicator color={Brand.orange} style={{ marginTop: 40 }} />
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="cube-outline" size={40} color={Brand.textLight} />
-            <Text style={styles.emptyText}>{search ? 'No matching services' : 'No services available'}</Text>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="cube-outline" size={36} color={Brand.textLight} />
+            </View>
+            <Text style={styles.emptyTitle}>{search ? 'No matching services' : 'No services available'}</Text>
+            <Text style={styles.emptyText}>{search ? 'Try a different keyword.' : 'Please check back again soon.'}</Text>
           </View>
         ) : (
           <View style={styles.grid}>
@@ -101,11 +104,14 @@ export default function HomeScreen() {
                   {cat.image ? (
                     <Image source={{ uri: cat.image }} style={styles.catImg} contentFit="cover" transition={200} />
                   ) : (
-                    <Ionicons name="construct" size={26} color={Brand.orange} />
+                    <Ionicons name="construct" size={34} color={Brand.orange} />
                   )}
                 </View>
                 <Text style={styles.catName} numberOfLines={1}>{cat.name}</Text>
-                <Text style={styles.catPriceMuted}>Tap to book</Text>
+                <View style={styles.catBookRow}>
+                  <Text style={styles.catBookText}>Book now</Text>
+                  <Ionicons name="arrow-forward" size={13} color={Brand.orange} />
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -131,16 +137,18 @@ const styles = StyleSheet.create({
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 26, marginBottom: 14 },
   sectionTitle: { fontSize: 17, fontWeight: '800', color: Brand.text },
   sectionCount: { fontSize: 12, fontWeight: '700', color: Brand.orange, backgroundColor: Brand.orange50, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
-  empty: { alignItems: 'center', marginTop: 40, gap: 10 },
-  emptyText: { color: Brand.textMuted, fontSize: 14 },
+  empty: { alignItems: 'center', marginTop: 50, gap: 6 },
+  emptyIcon: { height: 80, width: 80, borderRadius: 40, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyTitle: { color: Brand.text, fontSize: 16, fontWeight: '800' },
+  emptyText: { color: Brand.textMuted, fontSize: 13.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   catCard: {
-    width: '47%', backgroundColor: Brand.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: Brand.border,
+    width: '47%', backgroundColor: Brand.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: Brand.border,
     shadowColor: '#0f1c3f', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
-  catImgWrap: { height: 64, width: 64, borderRadius: 16, backgroundColor: Brand.orange50, alignItems: 'center', justifyContent: 'center', marginBottom: 12, overflow: 'hidden' },
-  catImg: { height: 64, width: 64 },
-  catName: { fontSize: 14.5, fontWeight: '700', color: Brand.text },
-  catPrice: { fontSize: 12.5, color: Brand.orange, fontWeight: '700', marginTop: 3 },
-  catPriceMuted: { fontSize: 12, color: Brand.textLight, marginTop: 3 },
+  catImgWrap: { height: 72, width: 72, borderRadius: 20, backgroundColor: Brand.orange50, alignItems: 'center', justifyContent: 'center', marginBottom: 12, overflow: 'hidden' },
+  catImg: { height: 72, width: 72 },
+  catName: { fontSize: 15, fontWeight: '800', color: Brand.text },
+  catBookRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  catBookText: { fontSize: 12.5, color: Brand.orange, fontWeight: '700' },
 });
