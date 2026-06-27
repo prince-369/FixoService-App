@@ -43,6 +43,7 @@ interface BookingDetail {
   customerLocation?: { address?: string; coordinates?: number[] };
   assignedWorker?: Worker;
   review?: { rating: number; feedback?: string };
+  scheduledAt?: string | null;
   createdAt: string;
 }
 
@@ -267,6 +268,23 @@ export default function BookingDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* Scheduled booking banner */}
+        {booking.scheduledAt && !['completed', 'cancelled'].includes(booking.status) ? (
+          <View style={styles.schedCard}>
+            <Ionicons name="calendar" size={18} color="#1d4ed8" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.schedTitle}>
+                Scheduled for {new Date(booking.scheduledAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+              </Text>
+              <Text style={styles.schedSub}>
+                {Date.now() >= new Date(booking.scheduledAt).getTime()
+                  ? 'The time has arrived — the worker can now start the job.'
+                  : "The worker can only start at your chosen time. You'll both be notified when it arrives. Cancel anytime before then."}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Assigned worker */}
         {booking.assignedWorker ? (
@@ -558,6 +576,9 @@ const styles = StyleSheet.create({
   card: { backgroundColor: Brand.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   cardTitle: { fontSize: 15, fontWeight: '800', color: Brand.text },
+  schedCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 16, padding: 14 },
+  schedTitle: { fontSize: 13.5, fontWeight: '800', color: '#1e40af' },
+  schedSub: { fontSize: 11.5, color: '#1d4ed8', marginTop: 3, lineHeight: 16 },
   trackHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   liveDot: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   liveDotInner: { height: 8, width: 8, borderRadius: 4, backgroundColor: Brand.success },

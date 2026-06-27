@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -14,17 +14,40 @@ import { Ionicons } from '@expo/vector-icons';
 import api, { getApiError } from '@/lib/api';
 import { Brand } from '@/lib/config';
 import { consumePickedLocation } from '@/lib/locationBridge';
+import { getSocket, connectSocket } from '@/lib/socket';
+import { useAppSelector } from '@/store/hooks';
+
+type AvailabilitySummary = { total: number; active: number; inactive: number; radiusMeters: number };
 
 // expo-speech-recognition is a native module (not in Expo Go) — only load it in a real build.
 const isExpoGo =
   Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
 
-const SLOTS = [
-  { key: 'anytime', label: 'Anytime', icon: 'time-outline' },
-  { key: 'morning', label: 'Morning', icon: 'partly-sunny-outline' },
-  { key: 'afternoon', label: 'Afternoon', icon: 'sunny-outline' },
-  { key: 'evening', label: 'Evening', icon: 'moon-outline' },
-] as const;
+const pad = (n: number) => String(n).padStart(2, '0');
+
+// Next 6 days as selectable chips (dependency-free scheduler).
+const buildDateOptions = () => {
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+    return { key: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, label, date: d };
+  });
+};
+
+// 6:00 AM → 10:00 PM at 30-minute steps.
+const buildTimeOptions = () => {
+  const out: string[] = [];
+  for (let h = 6; h <= 22; h++) { out.push(`${pad(h)}:00`); if (h !== 22) out.push(`${pad(h)}:30`); }
+  return out;
+};
+
+const formatTimeLabel = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}:${pad(m)} ${ampm}`;
+};
 
 // Pick a friendly icon based on the category name.
 const categoryIcon = (name?: string): keyof typeof Ionicons.glyphMap => {
@@ -45,9 +68,18 @@ export default function NewBookingScreen() {
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [slot, setSlot] = useState<string>('anytime');
+  const [scheduleMode, setScheduleMode] = useState<'asap' | 'scheduled'>('asap');
+  const [schedDateKey, setSchedDateKey] = useState<string>('');
+  const [schedTime, setSchedTime] = useState<string>('');
   const [locating, setLocating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Real-time worker availability around the chosen location.
+  const { user } = useAppSelector((s) => s.auth);
+  const [availability, setAvailability] = useState<AvailabilitySummary | null>(null);
+  const [loadingAvail, setLoadingAvail] = useState(false);
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
+  const [waitlistJoined, setWaitlistJoined] = useState(false);
 
   // Voice
   const [voiceUri, setVoiceUri] = useState<string | null>(null);
@@ -65,6 +97,57 @@ export default function NewBookingScreen() {
       setAddress(picked.address);
     }
   }, []));
+
+  // Fetch live worker availability for the chosen category + location (10 km).
+  const loadAvailability = useCallback(async (silent = false) => {
+    if (!category || !coords) { setAvailability(null); setLoadingAvail(false); return; }
+    if (!silent) setLoadingAvail(true);
+    try {
+      const { data } = await api.get('/booking/workers/availability-summary', {
+        params: { category, latitude: coords.lat, longitude: coords.lng },
+      });
+      setAvailability(data.summary || null);
+    } catch {
+      if (!silent) setAvailability(null);
+    } finally {
+      if (!silent) setLoadingAvail(false);
+    }
+  }, [category, coords]);
+
+  // Refetch when category or location changes (debounced).
+  useEffect(() => {
+    if (!category || !coords) { setAvailability(null); return; }
+    setWaitlistJoined(false);
+    const t = setTimeout(() => { void loadAvailability(false); }, 400);
+    return () => clearTimeout(t);
+  }, [category, coords, loadAvailability]);
+
+  // Live updates: silently refresh counts when a worker goes online/offline.
+  useEffect(() => {
+    if (!user?._id || !category || !coords) return;
+    connectSocket(user._id);
+    const socket = getSocket();
+    if (!socket) return;
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const onChange = () => { clearTimeout(debounce); debounce = setTimeout(() => { void loadAvailability(true); }, 800); };
+    socket.on('workers:availability-changed', onChange);
+    return () => { clearTimeout(debounce); socket.off('workers:availability-changed', onChange); };
+  }, [user?._id, category, coords, loadAvailability]);
+
+  // No workers nearby yet → let the customer ask Fixo to expand here (admin gets notified).
+  const handleJoinWaitlist = async () => {
+    if (!coords) return;
+    setJoiningWaitlist(true);
+    try {
+      await api.post('/customer/waitlist', { latitude: coords.lat, longitude: coords.lng, address: address.trim() });
+      setWaitlistJoined(true);
+      Alert.alert('Thanks!', "We'll notify you the moment Fixo arrives in your area.");
+    } catch (e) {
+      Alert.alert('Failed', getApiError(e, 'Could not submit right now. Please try again.'));
+    } finally {
+      setJoiningWaitlist(false);
+    }
+  };
 
   // ── Voice note recording (works in Expo Go) ──
   const startRec = async () => {
@@ -140,10 +223,31 @@ export default function NewBookingScreen() {
     }
   };
 
+  // Scheduling chips (no native date-picker dependency).
+  const dateOptions = buildDateOptions();
+  const timeOptions = buildTimeOptions();
+  const buildScheduledDate = (): Date | null => {
+    if (!schedDateKey || !schedTime) return null;
+    const opt = dateOptions.find((d) => d.key === schedDateKey);
+    if (!opt) return null;
+    const [h, m] = schedTime.split(':').map(Number);
+    const d = new Date(opt.date);
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+
   const submit = async () => {
     if (!description.trim()) return Alert.alert('Required', 'Please describe the work needed.');
     if (!coords) return Alert.alert('Location needed', 'Tap "Use my current location" to set where the service is needed.');
     if (!address.trim()) return Alert.alert('Address needed', 'Please add an address.');
+
+    let scheduledISO: string | undefined;
+    if (scheduleMode === 'scheduled') {
+      const sd = buildScheduledDate();
+      if (!sd) return Alert.alert('Pick a time', 'Please choose the date and time you want the work done.');
+      if (sd.getTime() < Date.now() + 5 * 60 * 1000) return Alert.alert('Invalid time', 'Please choose a time at least 5 minutes from now.');
+      scheduledISO = sd.toISOString();
+    }
 
     setSubmitting(true);
     try {
@@ -153,7 +257,7 @@ export default function NewBookingScreen() {
       form.append('latitude', String(coords.lat));
       form.append('longitude', String(coords.lng));
       form.append('address', address.trim());
-      form.append('timeSlot', slot);
+      if (scheduledISO) form.append('scheduledAt', scheduledISO);
 
       if (voiceUri) {
         const name = voiceUri.split('/').pop() || 'voice.m4a';
@@ -279,30 +383,113 @@ export default function NewBookingScreen() {
                 <Text style={styles.coordHint}>{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</Text>
               </View>
             ) : null}
+
+            {/* Live worker availability around this location */}
+            {coords && category ? (
+              <View style={styles.availBox}>
+                <View style={styles.availHead}>
+                  <Ionicons name="people" size={14} color={Brand.navy} />
+                  <Text style={styles.availTitle}>Worker availability around this location</Text>
+                </View>
+
+                {loadingAvail && !availability ? (
+                  <Text style={styles.availLoading}>Checking nearby workers…</Text>
+                ) : availability && availability.total > 0 ? (
+                  <>
+                    <View style={styles.availChips}>
+                      <View style={[styles.chip, styles.chipTotal]}><Text style={styles.chipTotalText}>Total: {availability.total}</Text></View>
+                      <View style={[styles.chip, styles.chipActive]}><Text style={styles.chipActiveText}>● Active: {availability.active}</Text></View>
+                      <View style={[styles.chip, styles.chipInactive]}><Text style={styles.chipInactiveText}>Inactive: {availability.inactive}</Text></View>
+                    </View>
+                    <Text style={styles.availHint}>
+                      Live counts within ~{Math.round(availability.radiusMeters / 1000)} km. Updates automatically as workers go online/offline.
+                    </Text>
+                  </>
+                ) : availability && availability.total === 0 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={styles.availEmptyTitle}>Fixo isn&apos;t available here yet — but we&apos;re coming soon!</Text>
+                    <Text style={styles.availHint}>Tell us you want Fixo here and we&apos;ll notify you the moment workers are available near you.</Text>
+                    {waitlistJoined ? (
+                      <View style={styles.waitlistDone}>
+                        <Ionicons name="checkmark-circle" size={15} color={Brand.success} />
+                        <Text style={styles.waitlistDoneText}>You&apos;re on the list — we&apos;ll reach out when Fixo arrives here.</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity style={[styles.waitlistBtn, joiningWaitlist && { opacity: 0.6 }]} onPress={handleJoinWaitlist} disabled={joiningWaitlist} activeOpacity={0.9}>
+                        {joiningWaitlist ? <ActivityIndicator color={Brand.white} size="small" /> : <Ionicons name="notifications" size={15} color={Brand.white} />}
+                        <Text style={styles.waitlistBtnText}>Notify me when Fixo arrives</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
 
-          {/* Preferred time */}
+          {/* When do you need it? */}
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <Ionicons name="calendar-outline" size={18} color={Brand.navy} />
-              <Text style={styles.cardTitle}>Preferred time</Text>
+              <Text style={styles.cardTitle}>When do you need it?</Text>
             </View>
-            <View style={styles.slotRow}>
-              {SLOTS.map((s) => {
-                const on = slot === s.key;
-                return (
-                  <TouchableOpacity
-                    key={s.key}
-                    style={[styles.slot, on && styles.slotActive]}
-                    onPress={() => setSlot(s.key)}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name={s.icon} size={16} color={on ? Brand.white : Brand.textMuted} />
-                    <Text style={[styles.slotText, on && styles.slotTextActive]}>{s.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+
+            <View style={styles.modeRow}>
+              <TouchableOpacity
+                style={[styles.modeBtn, scheduleMode === 'asap' && styles.modeBtnOn]}
+                onPress={() => setScheduleMode('asap')}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.modeText, scheduleMode === 'asap' && styles.modeTextOn]}>As soon as possible</Text>
+                <Text style={[styles.modeHint, scheduleMode === 'asap' && styles.modeHintOn]}>Worker starts right away</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modeBtn, scheduleMode === 'scheduled' && styles.modeBtnOn]}
+                onPress={() => setScheduleMode('scheduled')}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.modeText, scheduleMode === 'scheduled' && styles.modeTextOn]}>Pick a time</Text>
+                <Text style={[styles.modeHint, scheduleMode === 'scheduled' && styles.modeHintOn]}>Choose your own time</Text>
+              </TouchableOpacity>
             </View>
+
+            {scheduleMode === 'scheduled' ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.schedLabel}>Date</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
+                  {dateOptions.map((d) => {
+                    const on = schedDateKey === d.key;
+                    return (
+                      <TouchableOpacity key={d.key} style={[styles.dchip, on && styles.dchipOn]} onPress={() => setSchedDateKey(d.key)} activeOpacity={0.85}>
+                        <Text style={[styles.dchipText, on && styles.dchipTextOn]}>{d.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <Text style={[styles.schedLabel, { marginTop: 12 }]}>Time</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
+                  {timeOptions
+                    .filter((t) => {
+                      if (schedDateKey !== dateOptions[0]?.key) return true;
+                      const [h, m] = t.split(':').map(Number);
+                      const cand = new Date(); cand.setHours(h, m, 0, 0);
+                      return cand.getTime() >= Date.now() + 5 * 60 * 1000;
+                    })
+                    .map((t) => {
+                      const on = schedTime === t;
+                      return (
+                        <TouchableOpacity key={t} style={[styles.dchip, on && styles.dchipOn]} onPress={() => setSchedTime(t)} activeOpacity={0.85}>
+                          <Text style={[styles.dchipText, on && styles.dchipTextOn]}>{formatTimeLabel(t)}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                </ScrollView>
+
+                <Text style={styles.schedNote}>
+                  Workers can bid and lock the deal now, but the worker can only start at your chosen time. Both of you get notified when the time arrives. You can cancel anytime before then.
+                </Text>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -353,8 +540,40 @@ const styles = StyleSheet.create({
   locBtnText: { color: Brand.navy, fontWeight: '800', fontSize: 14 },
   coordRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   coordHint: { fontSize: 12, color: Brand.textMuted, fontWeight: '600' },
+  modeRow: { flexDirection: 'row', gap: 10 },
+  modeBtn: { flex: 1, borderWidth: 1.5, borderColor: Brand.border, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 12, backgroundColor: Brand.bg, alignItems: 'center' },
+  modeBtnOn: { borderColor: Brand.orange, backgroundColor: '#fff7ed' },
+  modeText: { fontSize: 13.5, fontWeight: '800', color: Brand.text },
+  modeTextOn: { color: Brand.orange },
+  modeHint: { fontSize: 10.5, color: Brand.textMuted, marginTop: 2, textAlign: 'center' },
+  modeHintOn: { color: '#c2410c' },
+  schedLabel: { fontSize: 11, fontWeight: '800', color: Brand.textMuted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 7 },
+  chipScroll: { gap: 8, paddingRight: 8 },
+  dchip: { borderWidth: 1, borderColor: Brand.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: Brand.bg },
+  dchipOn: { borderColor: Brand.navy, backgroundColor: Brand.navy },
+  dchipText: { fontSize: 12.5, fontWeight: '700', color: Brand.text },
+  dchipTextOn: { color: Brand.white },
+  schedNote: { fontSize: 11, color: Brand.textMuted, lineHeight: 16, marginTop: 12 },
   slotRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   slot: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: Brand.bg },
+  availBox: { marginTop: 12, backgroundColor: '#eef4ff', borderWidth: 1, borderColor: '#d6e4ff', borderRadius: 14, padding: 12 },
+  availHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  availTitle: { fontSize: 11.5, fontWeight: '800', color: Brand.navy, textTransform: 'uppercase', letterSpacing: 0.3, flex: 1 },
+  availLoading: { marginTop: 8, fontSize: 13, color: Brand.navy },
+  availChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  chip: { borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5 },
+  chipTotal: { backgroundColor: Brand.white },
+  chipTotalText: { fontSize: 12, fontWeight: '800', color: Brand.navy },
+  chipActive: { backgroundColor: '#d1fae5' },
+  chipActiveText: { fontSize: 12, fontWeight: '800', color: '#047857' },
+  chipInactive: { backgroundColor: '#ffedd5' },
+  chipInactiveText: { fontSize: 12, fontWeight: '800', color: '#c2410c' },
+  availHint: { marginTop: 8, fontSize: 11, color: '#3b5bdb', lineHeight: 15 },
+  availEmptyTitle: { fontSize: 13.5, fontWeight: '800', color: '#b45309' },
+  waitlistBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.navy, borderRadius: 12, paddingVertical: 12, marginTop: 2 },
+  waitlistBtnText: { color: Brand.white, fontSize: 13.5, fontWeight: '800' },
+  waitlistDone: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#d1fae5', borderRadius: 10, padding: 10 },
+  waitlistDoneText: { flex: 1, fontSize: 11.5, fontWeight: '700', color: '#047857' },
   slotActive: { backgroundColor: Brand.navy, borderColor: Brand.navy },
   slotText: { fontSize: 13.5, fontWeight: '700', color: Brand.textMuted },
   slotTextActive: { color: Brand.white },
