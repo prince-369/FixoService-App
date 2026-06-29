@@ -1,14 +1,26 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { registerCustomer, clearError } from '@/store/authSlice';
 import { Brand } from '@/lib/config';
+import { LOGO } from '@/lib/assets';
+
+// Password strength rules
+const PASSWORD_RULES = [
+  { label: 'Minimum 8 characters', test: (p: string) => p.length >= 8 },
+  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One number', test: (p: string) => /\d/.test(p) },
+  { label: 'One special character', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
+];
+const isStrongPassword = (p: string) => PASSWORD_RULES.every((r) => r.test(p));
 
 export default function RegisterScreen() {
   const dispatch = useAppDispatch();
@@ -19,9 +31,16 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+
+  const passwordStrong = isStrongPassword(password);
+  const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
+  const canSubmit = fullName && email && phone && passwordStrong && passwordsMatch;
 
   const handleRegister = async () => {
-    if (!fullName || !email || !phone || !password) return;
+    if (!canSubmit) return;
     dispatch(clearError());
     const result = await dispatch(registerCustomer({ fullName, email, phone, password }));
     if (registerCustomer.fulfilled.match(result)) {
@@ -30,73 +49,172 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.brand}>Create your account</Text>
-          <View style={styles.card}>
-            <Field label="Full Name" value={fullName} onChange={setFullName} placeholder="John Doe" />
-            <Field label="Email" value={email} onChange={setEmail} placeholder="you@example.com" keyboard="email-address" />
-            <Field label="Phone" value={phone} onChange={setPhone} placeholder="9876543210" keyboard="phone-pad" />
-            <Field label="Password" value={password} onChange={setPassword} placeholder="Strong password" secure />
+    <View style={styles.root}>
+      <LinearGradient colors={[Brand.navy, '#13284f', '#0a1430']} style={StyleSheet.absoluteFill} />
+      <SafeAreaView style={{ flex: 1 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+              <Text style={styles.tagline}>Book trusted local workers for household services</Text>
+            </View>
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <View style={styles.card}>
+              <Text style={styles.title}>Create your account</Text>
+              <Text style={styles.subtitle}>Sign up to get started</Text>
 
-            <TouchableOpacity
-              style={[styles.button, (isLoading || !fullName || !email || !phone || !password) && styles.disabled]}
-              onPress={handleRegister}
-              disabled={isLoading || !fullName || !email || !phone || !password}
-            >
-              {isLoading ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.buttonText}>Sign Up</Text>}
-            </TouchableOpacity>
+              <Text style={styles.label}>Full Name</Text>
+              <View style={styles.inputWrap}>
+                <Ionicons name="person-outline" size={18} color={Brand.textLight} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="John Doe"
+                  placeholderTextColor={Brand.textLight}
+                  value={fullName}
+                  onChangeText={setFullName}
+                />
+              </View>
+
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputWrap}>
+                <Ionicons name="mail-outline" size={18} color={Brand.textLight} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@example.com"
+                  placeholderTextColor={Brand.textLight}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              </View>
+
+              <Text style={styles.label}>Phone</Text>
+              <View style={styles.inputWrap}>
+                <Ionicons name="call-outline" size={18} color={Brand.textLight} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="9876543210"
+                  placeholderTextColor={Brand.textLight}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  value={phone}
+                  onChangeText={setPhone}
+                />
+              </View>
+
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrap}>
+                <Ionicons name="lock-closed-outline" size={18} color={Brand.textLight} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Strong password"
+                  placeholderTextColor={Brand.textLight}
+                  secureTextEntry={!showPass}
+                  value={password}
+                  onChangeText={setPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Brand.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Password strength indicator */}
+              {password.length > 0 && (
+                <View style={styles.rules}>
+                  {PASSWORD_RULES.map((r) => {
+                    const ok = r.test(password);
+                    return (
+                      <View key={r.label} style={styles.ruleRow}>
+                        <Text style={[styles.ruleIcon, ok && styles.ruleIconOk]}>{ok ? '✓' : '✗'}</Text>
+                        <Text style={[styles.ruleText, ok && styles.ruleTextOk]}>{r.label}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              <Text style={styles.label}>Confirm Password</Text>
+              <View style={styles.inputWrap}>
+                <Ionicons name="lock-closed-outline" size={18} color={Brand.textLight} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Re-enter password"
+                  placeholderTextColor={Brand.textLight}
+                  secureTextEntry={!showConfirmPass}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <TouchableOpacity onPress={() => setShowConfirmPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Brand.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              {confirmPassword.length > 0 && !passwordsMatch && (
+                <Text style={styles.mismatch}>Passwords do not match</Text>
+              )}
+
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle" size={15} color={Brand.danger} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={[styles.primaryBtn, (!canSubmit || isLoading) && styles.disabled]}
+                onPress={handleRegister}
+                disabled={!canSubmit || isLoading}
+                activeOpacity={0.9}
+              >
+                {isLoading ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.primaryText}>Sign Up</Text>}
+              </TouchableOpacity>
+
+            </View>
 
             <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.linkRow}>
               <Text style={styles.linkMuted}>Already have an account? </Text>
               <Text style={styles.link}>Sign In</Text>
             </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
 
-function Field({ label, value, onChange, placeholder, keyboard, secure }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string;
-  keyboard?: 'email-address' | 'phone-pad'; secure?: boolean;
-}) {
-  return (
-    <View>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder={placeholder}
-        placeholderTextColor={Brand.textLight}
-        value={value}
-        onChangeText={onChange}
-        keyboardType={keyboard}
-        secureTextEntry={secure}
-        autoCapitalize={keyboard === 'email-address' ? 'none' : 'words'}
-      />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Brand.navy },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  brand: { color: Brand.white, fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 20 },
-  card: { backgroundColor: Brand.card, borderRadius: 24, padding: 24 },
-  label: { fontSize: 12, fontWeight: '700', color: Brand.textMuted, marginBottom: 6, marginTop: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: {
-    backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 14,
-    paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: Brand.text,
+  root: { flex: 1, backgroundColor: Brand.navy },
+  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 32 },
+  header: { alignItems: 'center', marginBottom: 24, width: '100%' },
+  logo: { width: 170, height: 60 },
+  tagline: { color: '#aab8d8', fontSize: 13, marginTop: 8, textAlign: 'center', alignSelf: 'stretch' },
+  card: {
+    backgroundColor: Brand.card, borderRadius: 26, padding: 24,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 12,
   },
-  error: { color: Brand.danger, fontSize: 13, marginTop: 12 },
-  button: { backgroundColor: Brand.navy, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 22 },
+  title: { fontSize: 22, fontWeight: '800', color: Brand.text },
+  subtitle: { fontSize: 13, color: Brand.textMuted, marginTop: 4, marginBottom: 10 },
+  label: { fontSize: 11, fontWeight: '700', color: Brand.textMuted, marginTop: 14, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.6 },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 14,
+  },
+  input: { flex: 1, paddingVertical: 14, fontSize: 15, color: Brand.text },
+  rules: { marginTop: 10, gap: 4 },
+  ruleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ruleIcon: { fontSize: 13, color: Brand.textLight, fontWeight: '700', width: 16, textAlign: 'center' },
+  ruleIconOk: { color: Brand.success },
+  ruleText: { fontSize: 12, color: Brand.textLight },
+  ruleTextOk: { color: Brand.success },
+  mismatch: { color: Brand.danger, fontSize: 12, marginTop: 6 },
+  errorBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Brand.dangerBg, borderRadius: 10, padding: 10, marginTop: 14 },
+  errorText: { color: Brand.danger, fontSize: 12.5, flex: 1 },
+  primaryBtn: { backgroundColor: Brand.navy, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 22 },
   disabled: { opacity: 0.5 },
-  buttonText: { color: Brand.white, fontSize: 15, fontWeight: '700' },
-  linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 18 },
-  linkMuted: { color: Brand.textMuted, fontSize: 13 },
-  link: { color: Brand.navy, fontSize: 13, fontWeight: '700' },
+  primaryText: { color: Brand.white, fontSize: 15, fontWeight: '700' },
+  linkRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 18, marginBottom: 4 },
+  linkMuted: { color: '#aab8d8', fontSize: 13 },
+  link: { color: Brand.orange, fontSize: 13, fontWeight: '800' },
 });

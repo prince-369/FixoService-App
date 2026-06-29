@@ -56,6 +56,10 @@ export const loginCustomer = createAsyncThunk(
       });
       return res.data;
     } catch (err: any) {
+      // If Google OAuth account needs password setup, pass the full response data
+      if (err?.response?.status === 403 && err?.response?.data?.needsPassword) {
+        return rejectWithValue(err.response.data);
+      }
       console.error('[LOGIN ERROR]', JSON.stringify({
         message: err?.message,
         code: err?.code,
@@ -152,7 +156,7 @@ const authSlice = createSlice({
     builder
       .addCase(loginCustomer.pending, (s) => { s.isLoading = true; s.error = null; })
       .addCase(loginCustomer.fulfilled, (s, a) => handleAuthSuccess(s, a.payload))
-      .addCase(loginCustomer.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; })
+      .addCase(loginCustomer.rejected, (s, a) => { s.isLoading = false; const p = a.payload as any; if (!p?.needsPassword) s.error = typeof p === 'string' ? p : (p?.message || 'Login failed'); })
       .addCase(registerCustomer.pending, (s) => { s.isLoading = true; s.error = null; })
       .addCase(registerCustomer.fulfilled, (s, a) => handleAuthSuccess(s, a.payload))
       .addCase(registerCustomer.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; })

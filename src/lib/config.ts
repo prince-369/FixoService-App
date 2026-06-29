@@ -11,7 +11,7 @@
  */
 const USE_LOCAL_BACKEND = true;
 
-const LOCAL_IP = '192.168.1.3';
+const LOCAL_IP = '192.168.1.7';
 const LOCAL_PORT = 5000;
 
 const PRODUCTION_HOST = 'https://fixo-server.onrender.com';
