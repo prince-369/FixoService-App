@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Brand } from '@/lib/config';
 import { useAppSelector } from '@/store/hooks';
@@ -24,6 +25,7 @@ function BadgeIcon({ name, color, size, badge }: { name: keyof typeof Ionicons.g
 
 export default function TabsLayout() {
   const { user } = useAppSelector((s) => s.auth);
+  const insets = useSafeAreaInsets();
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [unreadSupport, setUnreadSupport] = useState(0);
 
@@ -62,7 +64,12 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: Brand.navy,
         tabBarInactiveTintColor: Brand.textLight,
-        tabBarStyle: { borderTopColor: Brand.border, height: 60, paddingBottom: 8, paddingTop: 6 },
+        tabBarStyle: {
+          borderTopColor: Brand.border,
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8),
+          paddingTop: 6,
+        },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >

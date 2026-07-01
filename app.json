@@ -67,7 +67,8 @@
         {
           "color": "#0f1c3f"
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "eas": {
