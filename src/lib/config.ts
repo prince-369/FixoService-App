@@ -9,12 +9,12 @@
  * LOCAL_IP: your computer's WiFi IPv4 address (find with `ipconfig` → IPv4 Address).
  *           Currently set to 192.168.1.7 — update this if your IP changes.
  */
-const USE_LOCAL_BACKEND = true;
+const USE_LOCAL_BACKEND = false;
 
 const LOCAL_IP = '192.168.1.7';
 const LOCAL_PORT = 5000;
 
-const PRODUCTION_HOST = 'https://fixo-server.onrender.com';
+const PRODUCTION_HOST = 'https://fixoserver.online';
 
 const LOCAL_HOST = `http://${LOCAL_IP}:${LOCAL_PORT}`;
 const HOST = USE_LOCAL_BACKEND ? LOCAL_HOST : PRODUCTION_HOST;

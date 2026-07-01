@@ -7,9 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Brand } from '@/lib/config';
 
 const PAGES: Record<string, { title: string; url: string }> = {
-  privacy: { title: 'Privacy Policy', url: 'https://fixo-service.vercel.app/privacy-policy' },
-  terms: { title: 'Terms of Service', url: 'https://fixo-service.vercel.app/terms' },
-  refund: { title: 'Refund Policy', url: 'https://fixo-service.vercel.app/refund-policy' },
+  privacy: { title: 'Privacy Policy', url: 'https://fixoservice.vercel.app/privacy-policy' },
+  terms: { title: 'Terms of Service', url: 'https://fixoservice.vercel.app/terms' },
+  refund: { title: 'Refund Policy', url: 'https://fixoservice.vercel.app/refund-policy' },
+  about: { title: 'About Fixo', url: 'https://fixoservice.vercel.app' },
 };
 
 export default function LegalScreen() {

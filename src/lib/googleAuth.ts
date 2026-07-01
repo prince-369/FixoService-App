@@ -17,10 +17,12 @@ WebBrowser.maybeCompleteAuthSession();
 export const GOOGLE_WEB_CLIENT_ID =
   '76224661304-pp7nolkvi6m7067vstpoqjpmgk2lujk3.apps.googleusercontent.com';
 
+export const GOOGLE_ANDROID_CLIENT_ID =
+  '76224661304-g9r5g0q2mv1rln06eu3vqoectis2rtd8.apps.googleusercontent.com';
+
 export function useGoogleAuth() {
-  // Returns [request, response, promptAsync]. response.params.id_token is the
-  // credential the server expects at /auth/customer/google.
   return Google.useIdTokenAuthRequest({
     clientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
   });
 }

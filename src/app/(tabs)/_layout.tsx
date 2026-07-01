@@ -1,9 +1,61 @@
+import { useEffect, useState } from 'react';
+import { Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Brand } from '@/lib/config';
+import { useAppSelector } from '@/store/hooks';
+import api from '@/lib/api';
+import { connectSocket, getSocket } from '@/lib/socket';
+import { getSeenTickets, countUnreadTickets } from '@/lib/ticketSeen';
+
+function BadgeIcon({ name, color, size, badge }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number; badge?: number }) {
+  return (
+    <View style={{ width: size + 10, height: size + 4, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={name} size={size} color={color} />
+      {badge && badge > 0 ? (
+        <View style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Brand.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+          <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export default function TabsLayout() {
+  const { user } = useAppSelector((s) => s.auth);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+  const [unreadSupport, setUnreadSupport] = useState(0);
+
+  useEffect(() => {
+    if (!user?._id) return;
+    const fetchCounts = async () => {
+      try {
+        const [notifRes, ticketRes, seen] = await Promise.all([
+          api.get('/customer/notifications').catch(() => ({ data: { notifications: [] } })),
+          api.get('/customer/help-tickets').catch(() => ({ data: { tickets: [] } })),
+          getSeenTickets(),
+        ]);
+        const notifs = notifRes.data?.notifications || [];
+        setUnreadNotifs(notifs.filter((n: any) => !n.isRead).length);
+        const tickets = ticketRes.data?.tickets || [];
+        setUnreadSupport(countUnreadTickets(tickets, seen));
+      } catch { /* */ }
+    };
+    fetchCounts();
+
+    connectSocket(user._id);
+    const socket = getSocket();
+    if (!socket) return;
+    const onNotif = () => setUnreadNotifs((p) => p + 1);
+    const onTicket = () => setUnreadSupport((p) => p + 1);
+    socket.on('notification_event', onNotif);
+    socket.on('help_ticket_updated', onTicket);
+    return () => { socket.off('notification_event', onNotif); socket.off('help_ticket_updated', onTicket); };
+  }, [user?._id]);
+
+  const profileBadge = unreadNotifs + unreadSupport;
+
   return (
     <Tabs
       screenOptions={{
@@ -39,7 +91,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <BadgeIcon name="person" color={color} size={size} badge={profileBadge} />,
         }}
       />
     </Tabs>

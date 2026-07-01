@@ -161,6 +161,52 @@ export default function SettingsScreen() {
             <Text style={styles.versionText}>{appVersion}</Text>
           </View>
         </View>
+
+        <Text style={styles.sectionLabel}>Account</Text>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.row} onPress={() => router.push('/change-password')} activeOpacity={0.7}>
+            <View style={styles.iconWrap}><Ionicons name="key" size={19} color={Brand.navy} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Change Password</Text>
+              <Text style={styles.rowDesc}>Update your account password</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Brand.textLight} />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.row} onPress={() => router.push('/help')} activeOpacity={0.7}>
+            <View style={styles.iconWrap}><Ionicons name="help-circle" size={19} color={Brand.navy} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Help & Support</Text>
+              <Text style={styles.rowDesc}>FAQs, raise tickets, contact us</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Brand.textLight} />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionLabel}>Language</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.iconWrap}><Ionicons name="globe" size={19} color={Brand.navy} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>English</Text>
+              <Text style={styles.rowDesc}>Currently active</Text>
+            </View>
+            <Ionicons name="checkmark-circle" size={20} color={Brand.success} />
+          </View>
+          {['हिंदी (Hindi)', 'বাংলা (Bengali)', 'తెలుగు (Telugu)', 'मराठी (Marathi)', 'தமிழ் (Tamil)', 'ગુજરાતી (Gujarati)', 'ಕನ್ನಡ (Kannada)', 'മലയാളം (Malayalam)', 'ਪੰਜਾਬੀ (Punjabi)', 'ଓଡ଼ିଆ (Odia)', 'اردو (Urdu)'].map((lang) => (
+            <View key={lang}>
+              <View style={styles.divider} />
+              <View style={[styles.row, { opacity: 0.45 }]}>
+                <View style={styles.iconWrap}><Ionicons name="globe-outline" size={19} color={Brand.textLight} /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowLabel}>{lang}</Text>
+                  <Text style={[styles.rowDesc, { color: Brand.orange }]}>Coming soon</Text>
+                </View>
+                <Ionicons name="lock-closed" size={14} color={Brand.textLight} />
+              </View>
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );

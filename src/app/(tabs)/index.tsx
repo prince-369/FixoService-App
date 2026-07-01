@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Dimensions, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppSelector } from '@/store/hooks';
 import api from '@/lib/api';
 import { Brand } from '@/lib/config';
+import { LOGO } from '@/lib/assets';
 import LocationHeader from '@/components/LocationHeader';
 
 interface Category {
@@ -24,6 +25,11 @@ export default function HomeScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [banners, setBanners] = useState<{ id: string; image: string; alt: string }[]>([]);
+  const bannerRef = useRef<FlatList>(null);
+  const [bannerIdx, setBannerIdx] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const screenWidth = Dimensions.get('window').width - 32; // account for padding
 
   useEffect(() => {
     let active = true;
@@ -31,8 +37,30 @@ export default function HomeScreen() {
       .then((res) => { if (active) setCategories(res.data.categories || res.data || []); })
       .catch(() => {})
       .finally(() => active && setLoading(false));
+    // Fetch banners from deployed web app
+    fetch('https://fixoservice.vercel.app/api/public-banners')
+      .then((r) => r.json())
+      .then((data) => { if (active && data?.banners) setBanners(data.banners); })
+      .catch(() => {});
+    // Fetch unread notification count
+    api.get('/customer/notifications')
+      .then((res) => { if (active) setUnreadCount((res.data?.notifications || []).filter((n: any) => !n.isRead).length); })
+      .catch(() => {});
     return () => { active = false; };
   }, []);
+
+  // Auto-scroll banners
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const t = setInterval(() => {
+      setBannerIdx((prev) => {
+        const next = (prev + 1) % banners.length;
+        bannerRef.current?.scrollToIndex({ index: next, animated: true });
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(t);
+  }, [banners.length]);
 
   const filtered = search
     ? categories.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
@@ -42,13 +70,20 @@ export default function HomeScreen() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.headerRow}>
+          <Image source={LOGO} style={styles.logoImg} contentFit="contain" />
+          <TouchableOpacity style={styles.bell} onPress={() => router.push('/notifications')}>
+            <Ionicons name="notifications-outline" size={22} color={Brand.white} />
+            {unreadCount > 0 ? (
+              <View style={styles.bellBadge}><Text style={styles.bellBadgeT}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>
+            ) : null}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.greetRow}>
           <View>
             <Text style={styles.hi}>Hello,</Text>
             <Text style={styles.name}>{user?.fullName?.split(' ')[0] || 'there'} 👋</Text>
           </View>
-          <TouchableOpacity style={styles.bell} onPress={() => router.push('/notifications')}>
-            <Ionicons name="notifications-outline" size={22} color={Brand.white} />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.searchWrap}>
@@ -68,13 +103,41 @@ export default function HomeScreen() {
           <LocationHeader />
         </View>
 
-        <LinearGradient colors={[Brand.orange, '#fb923c']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.banner}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.bannerTitle}>Book trusted experts</Text>
-            <Text style={styles.bannerSub}>Verified professionals near you, at fair prices.</Text>
+        {/* Banner Carousel */}
+        {banners.length > 0 ? (
+          <View style={{ marginBottom: 14 }}>
+            <FlatList
+              ref={bannerRef}
+              data={banners}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(b) => b.id}
+              onMomentumScrollEnd={(e) => { const idx = Math.round(e.nativeEvent.contentOffset.x / screenWidth); setBannerIdx(idx); }}
+              getItemLayout={(_, index) => ({ length: screenWidth, offset: screenWidth * index, index })}
+              renderItem={({ item }) => (
+                <View style={[styles.bannerSlide, { width: screenWidth }]}>
+                  <Image source={{ uri: `https://fixoservice.vercel.app${item.image}` }} style={styles.bannerImg} contentFit="cover" transition={200} />
+                </View>
+              )}
+            />
+            {banners.length > 1 && (
+              <View style={styles.bannerDots}>
+                {banners.map((_, i) => (
+                  <View key={i} style={[styles.bannerDot, i === bannerIdx && styles.bannerDotActive]} />
+                ))}
+              </View>
+            )}
           </View>
-          <Ionicons name="shield-checkmark" size={54} color="rgba(255,255,255,0.35)" />
-        </LinearGradient>
+        ) : (
+          <LinearGradient colors={[Brand.orange, '#fb923c']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.banner}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bannerTitle}>Book trusted experts</Text>
+              <Text style={styles.bannerSub}>Verified professionals near you, at fair prices.</Text>
+            </View>
+            <Ionicons name="shield-checkmark" size={54} color="rgba(255,255,255,0.35)" />
+          </LinearGradient>
+        )}
 
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>All Services</Text>
@@ -125,15 +188,24 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.bg },
   headerSafe: { backgroundColor: Brand.navy, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  logoImg: { width: 80, height: 26 },
+  greetRow: { marginTop: 10 },
   hi: { color: '#aab8d8', fontSize: 13 },
   name: { color: Brand.white, fontSize: 22, fontWeight: '800' },
   bell: { height: 42, width: 42, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Brand.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  bellBadgeT: { color: '#fff', fontSize: 9, fontWeight: '800' },
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Brand.white, borderRadius: 14, paddingHorizontal: 14, marginTop: 16 },
   searchInput: { flex: 1, paddingVertical: 13, fontSize: 14.5, color: Brand.text },
   scroll: { padding: 20, paddingBottom: 40 },
   banner: { flexDirection: 'row', alignItems: 'center', borderRadius: 20, padding: 20, overflow: 'hidden' },
   bannerTitle: { color: Brand.white, fontSize: 18, fontWeight: '900' },
   bannerSub: { color: 'rgba(255,255,255,0.92)', fontSize: 12.5, marginTop: 6, lineHeight: 17 },
+  bannerSlide: { borderRadius: 16, overflow: 'hidden' },
+  bannerImg: { width: '100%', height: 160, borderRadius: 16 },
+  bannerDots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 10 },
+  bannerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d1d5db' },
+  bannerDotActive: { width: 20, backgroundColor: Brand.orange },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 26, marginBottom: 14 },
   sectionTitle: { fontSize: 17, fontWeight: '800', color: Brand.text },
   sectionCount: { fontSize: 12, fontWeight: '700', color: Brand.orange, backgroundColor: Brand.orange50, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },

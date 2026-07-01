@@ -13,7 +13,9 @@ import { connectSocket, getSocket } from '@/lib/socket';
 import { Brand } from '@/lib/config';
 import { LOGO } from '@/lib/assets';
 import LiveNotificationBanner from '@/components/LiveNotificationBanner';
+import { ToastProvider } from '@/components/Toast';
 import { LocationProvider } from '@/lib/locationContext';
+import { registerPushNotifications, setupNotificationListeners } from '@/lib/pushNotifications';
 
 function RootNavigator() {
   const dispatch = useAppDispatch();
@@ -39,6 +41,17 @@ function RootNavigator() {
     socket.on('account_unblocked', onChange);
     return () => { socket.off('account_blocked', onChange); socket.off('account_unblocked', onChange); };
   }, [user?._id, dispatch]);
+
+  // Push notifications: register token + listen for taps.
+  useEffect(() => {
+    if (!user?._id || !token) return;
+    registerPushNotifications();
+    const cleanup = setupNotificationListeners((data) => {
+      if (data?.bookingId) router.push(`/booking/${data.bookingId}`);
+      else router.push('/notifications');
+    });
+    return cleanup;
+  }, [user?._id, token]);
 
   // Auth + block gate.
   useEffect(() => {
@@ -81,6 +94,7 @@ export default function RootLayout() {
         <LocationProvider>
           <StatusBar style="dark" />
           <RootNavigator />
+          <ToastProvider />
         </LocationProvider>
       </Provider>
     </SafeAreaProvider>

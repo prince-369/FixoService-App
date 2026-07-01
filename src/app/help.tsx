@@ -1,190 +1,341 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform,
+  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 
 import api, { getApiError } from '@/lib/api';
+import { useAppSelector } from '@/store/hooks';
+import { connectSocket } from '@/lib/socket';
 import { Brand } from '@/lib/config';
-import { formatDate } from '@/lib/format';
+import { markTicketSeen, getSeenTickets, clearTicketSeen, countUnreadTickets } from '@/lib/ticketSeen';
 
-interface Ticket { _id: string; category: string; message: string; status: string; createdAt: string; }
-
-const CATEGORIES = ['booking_help', 'payment_issue', 'worker_issue', 'refund', 'other'];
-
-const FAQS: { q: string; a: string }[] = [
-  { q: 'How do I book a service?', a: 'Pick a category from the home screen, describe your work, and nearby workers will send you bids. Accept the one you like and you\'re set.' },
+const FAQS = [
+  { q: 'How do I book a service?', a: 'Pick a category from the home screen, describe your work, and nearby workers will send bids. Accept the one you like.' },
   { q: 'How are payments handled?', a: 'You can pay online or in cash after the work is done. Online payments are secured through our payment partner.' },
-  { q: 'Can I get a refund?', a: 'Yes. If something went wrong, raise a ticket below under "Refund" and our team will review your request.' },
-  { q: 'What if I have an issue with a worker?', a: 'Raise a ticket under "Worker issue" with the details and we\'ll step in to help resolve it.' },
+  { q: 'Can I get a refund?', a: 'Yes. Raise a ticket under "Refund" category and our team will review your request.' },
+  { q: 'What if I have an issue with a worker?', a: 'Raise a ticket under "Worker Issue" with details and we\'ll help resolve it.' },
 ];
+
+const CATEGORIES = [
+  { label: 'Booking Issue', value: 'bidding_issue' },
+  { label: 'Payment Issue', value: 'payment_issue' },
+  { label: 'Worker Issue', value: 'worker_related' },
+  { label: 'Refund', value: 'refund' },
+  { label: 'Account Issue', value: 'account_issue' },
+  { label: 'Other', value: 'other' },
+];
+
+interface ChatMsg { sender: 'user' | 'bot' | 'admin'; message: string; timestamp: string; }
+interface Ticket { _id: string; ticketNumber?: string; category: string; status: string; chatHistory: ChatMsg[]; createdAt: string; }
+
+type ViewMode = 'home' | 'tickets' | 'chat' | 'new';
 
 export default function HelpScreen() {
   const router = useRouter();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState('booking_help');
-  const [message, setMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const { user } = useAppSelector((s) => s.auth);
+
+  const [view, setView] = useState<ViewMode>('home');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
+  // Tickets
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+
+  // Chat
+  const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
+  const [chatMsg, setChatMsg] = useState('');
+  const [sendingMsg, setSendingMsg] = useState(false);
+  const chatListRef = useRef<FlatList>(null);
+
+  // New ticket
+  const [category, setCategory] = useState(CATEGORIES[0].value);
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  // Real-time updates
+  useEffect(() => {
+    if (!user?._id) return;
+    const socket = connectSocket(user._id);
+    if (!socket) return;
+    const onUpdate = (payload: { ticket?: Ticket }) => {
+      if (!payload?.ticket) return;
+      const t = payload.ticket;
+      setTickets((prev) => prev.map((x) => x._id === t._id ? t : x));
+      setActiveTicket((prev) => prev?._id === t._id ? t : prev);
+      // If new admin message arrives and user is NOT currently viewing this ticket, mark unseen
+      const last = t.chatHistory?.[t.chatHistory.length - 1];
+      if (last && last.sender !== 'user') {
+        setSeenTickets((prev) => {
+          const next = new Set(prev);
+          if (activeTicket?._id !== t._id) { next.delete(t._id); clearTicketSeen(t._id); }
+          return next;
+        });
+      }
+    };
+    socket.on('help_ticket_updated', onUpdate);
+    return () => { socket.off('help_ticket_updated', onUpdate); };
+  }, [user?._id]);
+
+  const fetchTickets = async () => {
+    setLoadingTickets(true);
     try {
       const res = await api.get('/customer/help-tickets');
-      setTickets(res.data.tickets || res.data || []);
-    } catch { /* keep */ } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const submit = async () => {
-    if (!message.trim()) return Alert.alert('Required', 'Please describe your issue.');
-    setSubmitting(true);
-    try {
-      await api.post('/customer/help-tickets', { category, message: message.trim() });
-      setMessage('');
-      Alert.alert('Submitted', 'Our team will get back to you soon.');
-      load();
-    } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not submit'));
-    } finally { setSubmitting(false); }
+      setTickets(res.data.tickets || []);
+    } catch { /* */ } finally { setLoadingTickets(false); }
   };
 
-  return (
-    <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={styles.topbar}>
-        <View style={styles.topRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.back} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={22} color={Brand.white} />
-          </TouchableOpacity>
-          <Text style={styles.topTitle}>Help & Support</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </SafeAreaView>
+  const fetchTicketDetail = async (id: string) => {
+    try {
+      const res = await api.get(`/customer/help-tickets/${id}`);
+      setActiveTicket(res.data.ticket);
+    } catch { Alert.alert('Error', 'Could not load ticket'); }
+  };
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {/* Contact banner */}
-          <View style={styles.contactCard}>
-            <View style={styles.contactIcon}><Ionicons name="headset" size={22} color={Brand.white} /></View>
-            <Text style={styles.contactText}>We&apos;re here to help. Browse the FAQs or raise a ticket and our team will respond.</Text>
+  // Track which tickets user has "seen" (read the latest messages)
+  const [seenTickets, setSeenTickets] = useState<Set<string>>(new Set());
+
+  useEffect(() => { getSeenTickets().then(setSeenTickets); }, []);
+
+  const openTicket = (t: Ticket) => {
+    setActiveTicket(t);
+    setView('chat');
+    fetchTicketDetail(t._id);
+    // Mark as seen locally — badge will disappear
+    markTicketSeen(t._id);
+    setSeenTickets((prev) => new Set(prev).add(t._id));
+  };
+
+  const sendMessage = async () => {
+    if (!chatMsg.trim() || !activeTicket) return;
+    setSendingMsg(true);
+    try {
+      const res = await api.post(`/customer/help-tickets/${activeTicket._id}/message`, { message: chatMsg.trim() });
+      setActiveTicket(res.data.ticket);
+      setChatMsg('');
+      setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 200);
+    } catch (e) { Alert.alert('Failed', getApiError(e, 'Could not send')); } finally { setSendingMsg(false); }
+  };
+
+  const submitNewTicket = async () => {
+    if (!message.trim()) { Alert.alert('Required', 'Please describe your issue.'); return; }
+    setSending(true);
+    try {
+      const res = await api.post('/customer/help-tickets', { category, message: message.trim() });
+      Alert.alert('Ticket created', res.data?.ticket?.ticketNumber ? `Ticket ${res.data.ticket.ticketNumber} created!` : 'Our team will respond soon.');
+      setMessage('');
+      setView('tickets');
+      fetchTickets();
+    } catch (e) { Alert.alert('Failed', getApiError(e, 'Could not create ticket')); } finally { setSending(false); }
+  };
+
+  useFocusEffect(useCallback(() => { fetchTickets(); }, []));
+
+  const ticketNumber = (t: Ticket) => t.ticketNumber || `#${t._id.slice(-6).toUpperCase()}`;
+  const statusColor = (s: string) => s === 'resolved' ? Brand.success : s === 'escalated' ? Brand.danger : '#f59e0b';
+
+  // ─── Chat View ───
+  if (view === 'chat' && activeTicket) {
+    return (
+      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+        <View style={styles.topbar}>
+          <TouchableOpacity onPress={() => setView('tickets')}><Ionicons name="arrow-back" size={22} color={Brand.text} /></TouchableOpacity>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.title} numberOfLines={1}>{ticketNumber(activeTicket)}</Text>
+            <Text style={{ fontSize: 11, color: statusColor(activeTicket.status), fontWeight: '700', textTransform: 'capitalize' }}>{activeTicket.status}</Text>
           </View>
-
-          {/* FAQ */}
-          <Text style={styles.sectionLabel}>Frequently asked</Text>
-          <View style={styles.faqCard}>
-            {FAQS.map((f, i) => {
-              const open = openFaq === i;
+        </View>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+          <FlatList
+            ref={chatListRef}
+            data={activeTicket.chatHistory || []}
+            keyExtractor={(_, i) => String(i)}
+            contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+            onContentSizeChange={() => chatListRef.current?.scrollToEnd({ animated: false })}
+            renderItem={({ item }) => {
+              const isUser = item.sender === 'user';
               return (
-                <View key={f.q}>
-                  {i > 0 ? <View style={styles.faqDivider} /> : null}
-                  <TouchableOpacity style={styles.faqRow} onPress={() => setOpenFaq(open ? null : i)} activeOpacity={0.7}>
-                    <Text style={styles.faqQ}>{f.q}</Text>
-                    <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={Brand.textMuted} />
-                  </TouchableOpacity>
-                  {open ? <Text style={styles.faqA}>{f.a}</Text> : null}
+                <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAdmin]}>
+                  <Text style={[styles.bubbleT, isUser ? styles.bubbleTUser : styles.bubbleTAdmin]}>{item.message}</Text>
+                  <Text style={styles.bubbleTime}>{new Date(item.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
                 </View>
               );
-            })}
-          </View>
-
-          {/* Raise a ticket */}
-          <Text style={styles.sectionLabel}>Raise a ticket</Text>
-          <View style={styles.formCard}>
-            <Text style={styles.label}>Issue type</Text>
-            <View style={styles.chipRow}>
-              {CATEGORIES.map((c) => (
-                <TouchableOpacity key={c} style={[styles.chip, category === c && styles.chipActive]} onPress={() => setCategory(c)} activeOpacity={0.8}>
-                  <Text style={[styles.chipText, category === c && styles.chipTextActive]}>{c.replace(/_/g, ' ')}</Text>
-                </TouchableOpacity>
-              ))}
+            }}
+            ListEmptyComponent={<Text style={{ textAlign: 'center', color: Brand.textMuted, marginTop: 40 }}>No messages yet</Text>}
+          />
+          {activeTicket.status !== 'resolved' && (
+            <View style={styles.chatInput}>
+              <TextInput style={styles.chatTextInput} value={chatMsg} onChangeText={setChatMsg} placeholder="Type a message..." placeholderTextColor={Brand.textLight} multiline />
+              <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} disabled={sendingMsg || !chatMsg.trim()}>
+                {sendingMsg ? <ActivityIndicator size="small" color={Brand.white} /> : <Ionicons name="send" size={18} color={Brand.white} />}
+              </TouchableOpacity>
             </View>
-
-            <Text style={styles.label}>Describe your issue</Text>
-            <TextInput style={[styles.input, styles.textarea]} value={message} onChangeText={setMessage} placeholder="Tell us what went wrong..." placeholderTextColor={Brand.textLight} multiline />
-
-            <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={submit} disabled={submitting} activeOpacity={0.85}>
-              {submitting ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.submitText}>Submit Ticket</Text>}
-            </TouchableOpacity>
-          </View>
-
-          {/* Tickets */}
-          <Text style={styles.sectionLabel}>Your tickets</Text>
-          {loading ? (
-            <ActivityIndicator color={Brand.orange} style={{ marginTop: 16 }} />
-          ) : tickets.length === 0 ? (
-            <View style={styles.noneCard}>
-              <Ionicons name="chatbubbles-outline" size={32} color={Brand.textLight} />
-              <Text style={styles.noneText}>No tickets yet.</Text>
-            </View>
-          ) : (
-            tickets.map((t) => (
-              <View key={t._id} style={styles.ticket}>
-                <View style={styles.ticketIcon}><Ionicons name="document-text-outline" size={18} color={Brand.navy} /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.ticketCat}>{t.category.replace(/_/g, ' ')}</Text>
-                  <Text style={styles.ticketMsg} numberOfLines={2}>{t.message}</Text>
-                  <Text style={styles.ticketDate}>{formatDate(t.createdAt)}</Text>
-                </View>
-                <View style={[styles.statusPill, { backgroundColor: t.status === 'resolved' ? Brand.successBg : '#fef3c7' }]}>
-                  <Text style={[styles.statusText, { color: t.status === 'resolved' ? Brand.success : '#b45309' }]}>{t.status}</Text>
-                </View>
-              </View>
-            ))
           )}
-          <View style={{ height: 30 }} />
+          {activeTicket.status === 'resolved' && (
+            <View style={styles.resolvedBar}><Ionicons name="checkmark-circle" size={16} color={Brand.success} /><Text style={styles.resolvedT}>This ticket is resolved</Text></View>
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Tickets List ───
+  if (view === 'tickets') {
+    return (
+      <SafeAreaView style={styles.root} edges={['top']}>
+        <View style={styles.topbar}>
+          <TouchableOpacity onPress={() => setView('home')}><Ionicons name="arrow-back" size={22} color={Brand.text} /></TouchableOpacity>
+          <Text style={styles.title}>My Tickets</Text>
+          <TouchableOpacity onPress={() => setView('new')}><Ionicons name="add-circle" size={24} color={Brand.orange} /></TouchableOpacity>
+        </View>
+        {loadingTickets ? <ActivityIndicator color={Brand.orange} style={{ marginTop: 40 }} /> : (
+          <FlatList
+            data={tickets}
+            keyExtractor={(t) => t._id}
+            contentContainerStyle={{ padding: 16 }}
+            ListEmptyComponent={<Text style={{ textAlign: 'center', color: Brand.textMuted, marginTop: 40 }}>No tickets yet. Raise one!</Text>}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={styles.ticketCard} onPress={() => openTicket(item)} activeOpacity={0.8}>
+                <View style={styles.ticketHead}>
+                  <Text style={styles.ticketNum}>{ticketNumber(item)}</Text>
+                  <View style={[styles.statusPill, { backgroundColor: statusColor(item.status) + '20' }]}>
+                    <Text style={[styles.statusT, { color: statusColor(item.status) }]}>{item.status}</Text>
+                  </View>
+                </View>
+                <Text style={styles.ticketCat}>{item.category.replace(/_/g, ' ')}</Text>
+                {item.chatHistory?.length > 0 && (
+                  <Text style={styles.ticketLast} numberOfLines={1}>{item.chatHistory[item.chatHistory.length - 1].message}</Text>
+                )}
+                <Text style={styles.ticketDate}>{new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
+      </SafeAreaView>
+    );
+  }
+
+  // ─── New Ticket ───
+  if (view === 'new') {
+    return (
+      <SafeAreaView style={styles.root} edges={['top']}>
+        <View style={styles.topbar}>
+          <TouchableOpacity onPress={() => setView('home')}><Ionicons name="arrow-back" size={22} color={Brand.text} /></TouchableOpacity>
+          <Text style={styles.title}>New Ticket</Text>
+          <View style={{ width: 22 }} />
+        </View>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Text style={styles.section}>Category</Text>
+          <View style={styles.chipsRow}>
+            {CATEGORIES.map((c) => (
+              <TouchableOpacity key={c.value} style={[styles.chip, category === c.value && styles.chipActive]} onPress={() => setCategory(c.value)}>
+                <Text style={[styles.chipT, category === c.value && styles.chipTActive]}>{c.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.section}>Describe your issue</Text>
+          <TextInput style={styles.msgInput} value={message} onChangeText={setMessage} placeholder="Apni problem yahan likhein…" placeholderTextColor={Brand.textLight} multiline />
+          <TouchableOpacity style={[styles.submitBtn, sending && styles.disabled]} onPress={submitNewTicket} disabled={sending}>
+            {sending ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.submitT}>Submit Ticket</Text>}
+          </TouchableOpacity>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Home View ───
+  return (
+    <SafeAreaView style={styles.root} edges={['top']}>
+      <View style={styles.topbar}>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color={Brand.text} /></TouchableOpacity>
+        <Text style={styles.title}>Help & Support</Text>
+        <View style={{ width: 22 }} />
+      </View>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* Action Cards */}
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => { setView('tickets'); fetchTickets(); }}>
+            <View style={[styles.actionIcon, { backgroundColor: '#dbeafe' }]}><Ionicons name="chatbubbles" size={22} color="#2563eb" /></View>
+            <Text style={styles.actionLabel}>My Tickets</Text>
+            <Text style={styles.actionSub}>View & chat on tickets</Text>
+            {tickets.filter((t) => { if (seenTickets.has(t._id)) return false; const last = t.chatHistory?.[t.chatHistory.length - 1]; return t.status !== 'resolved' && last && last.sender !== 'user'; }).length > 0 && (
+              <View style={styles.actionBadge}><Text style={styles.actionBadgeT}>{tickets.filter((t) => { if (seenTickets.has(t._id)) return false; const last = t.chatHistory?.[t.chatHistory.length - 1]; return t.status !== 'resolved' && last && last.sender !== 'user'; }).length}</Text></View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionCard} onPress={() => setView('new')}>
+            <View style={[styles.actionIcon, { backgroundColor: '#fef3c7' }]}><Ionicons name="add-circle" size={22} color="#d97706" /></View>
+            <Text style={styles.actionLabel}>Raise Ticket</Text>
+            <Text style={styles.actionSub}>Report an issue</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* FAQ */}
+        <Text style={styles.section}>Frequently Asked</Text>
+        {FAQS.map((f, i) => (
+          <TouchableOpacity key={i} style={styles.faq} activeOpacity={0.8} onPress={() => setOpenFaq(openFaq === i ? null : i)}>
+            <View style={styles.faqHead}>
+              <Text style={styles.faqQ}>{f.q}</Text>
+              <Ionicons name={openFaq === i ? 'chevron-up' : 'chevron-down'} size={16} color={Brand.textMuted} />
+            </View>
+            {openFaq === i && <Text style={styles.faqA}>{f.a}</Text>}
+          </TouchableOpacity>
+        ))}
+        <View style={{ height: 24 }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.bg },
-  topbar: {
-    backgroundColor: Brand.navy,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: Brand.navy,
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
-  topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 16, paddingTop: 4 },
-  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)' },
-  topTitle: { flex: 1, color: Brand.white, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: Brand.card, borderBottomWidth: 1, borderBottomColor: Brand.border },
+  title: { fontSize: 16, fontWeight: '800', color: Brand.text },
   scroll: { padding: 16 },
-  contactCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: Brand.navy, borderRadius: 18, padding: 16 },
-  contactIcon: { height: 44, width: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  contactText: { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.92)', lineHeight: 19 },
-  sectionLabel: { fontSize: 12, fontWeight: '800', color: Brand.textMuted, marginTop: 22, marginBottom: 10, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  faqCard: { backgroundColor: Brand.card, borderRadius: 18, borderWidth: 1, borderColor: Brand.border, paddingHorizontal: 16, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  faqRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingVertical: 15 },
-  faqQ: { flex: 1, fontSize: 14, fontWeight: '700', color: Brand.text },
-  faqA: { fontSize: 13, color: Brand.textMuted, lineHeight: 19, paddingBottom: 15 },
-  faqDivider: { height: 1, backgroundColor: Brand.border },
-  formCard: { backgroundColor: Brand.card, borderRadius: 18, borderWidth: 1, borderColor: Brand.border, padding: 16, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  label: { fontSize: 12, fontWeight: '800', color: Brand.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  chip: { borderWidth: 1, borderColor: Brand.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: Brand.bg },
+  actions: { flexDirection: 'row', gap: 12, marginBottom: 18 },
+  actionCard: { flex: 1, backgroundColor: Brand.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Brand.border, alignItems: 'center', gap: 6 },
+  actionIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: 13.5, fontWeight: '800', color: Brand.text },
+  actionSub: { fontSize: 11, color: Brand.textMuted, textAlign: 'center' },
+  actionBadge: { position: 'absolute', top: 8, right: 8, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: Brand.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  actionBadgeT: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  section: { fontSize: 15, fontWeight: '800', color: Brand.text, marginTop: 8, marginBottom: 10 },
+  faq: { backgroundColor: Brand.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Brand.border, marginBottom: 8 },
+  faqHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  faqQ: { flex: 1, fontSize: 13.5, fontWeight: '700', color: Brand.text },
+  faqA: { fontSize: 12.5, color: Brand.textMuted, marginTop: 8, lineHeight: 18 },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  chip: { backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
   chipActive: { backgroundColor: Brand.navy, borderColor: Brand.navy },
-  chipText: { fontSize: 12.5, fontWeight: '600', color: Brand.textMuted, textTransform: 'capitalize' },
-  chipTextActive: { color: Brand.white },
-  input: { backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: Brand.text, marginTop: 16 },
-  textarea: { height: 110, textAlignVertical: 'top' },
-  submitBtn: { backgroundColor: Brand.orange, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 16, shadowColor: Brand.orange, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
-  submitText: { color: Brand.white, fontSize: 15, fontWeight: '800' },
-  noneCard: { alignItems: 'center', gap: 8, backgroundColor: Brand.card, borderRadius: 16, borderWidth: 1, borderColor: Brand.border, paddingVertical: 28 },
-  noneText: { fontSize: 13, color: Brand.textMuted },
-  ticket: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: Brand.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: Brand.border, marginBottom: 10 },
-  ticketIcon: { height: 38, width: 38, borderRadius: 11, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center' },
-  ticketCat: { fontSize: 14, fontWeight: '700', color: Brand.text, textTransform: 'capitalize' },
-  ticketMsg: { fontSize: 13, color: Brand.textMuted, marginTop: 3 },
+  chipT: { fontSize: 12, fontWeight: '700', color: Brand.textMuted },
+  chipTActive: { color: Brand.white },
+  msgInput: { backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, borderRadius: 12, padding: 14, fontSize: 14, color: Brand.text, height: 100, textAlignVertical: 'top' },
+  submitBtn: { backgroundColor: Brand.orange, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 12 },
+  submitT: { color: Brand.white, fontSize: 14.5, fontWeight: '800' },
+  disabled: { opacity: 0.5 },
+  // Tickets
+  ticketCard: { backgroundColor: Brand.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Brand.border, marginBottom: 10 },
+  ticketHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ticketNum: { fontSize: 14, fontWeight: '800', color: Brand.text },
+  statusPill: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
+  statusT: { fontSize: 11, fontWeight: '800', textTransform: 'capitalize' },
+  ticketCat: { fontSize: 12, color: Brand.textMuted, marginTop: 4, textTransform: 'capitalize' },
+  ticketLast: { fontSize: 12.5, color: Brand.textLight, marginTop: 4 },
   ticketDate: { fontSize: 11, color: Brand.textLight, marginTop: 6 },
-  statusPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  statusText: { fontSize: 11, fontWeight: '800', textTransform: 'capitalize' },
+  // Chat
+  bubble: { maxWidth: '80%', borderRadius: 14, padding: 12, marginBottom: 8 },
+  bubbleUser: { alignSelf: 'flex-end', backgroundColor: Brand.navy },
+  bubbleAdmin: { alignSelf: 'flex-start', backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border },
+  bubbleT: { fontSize: 13.5, lineHeight: 19 },
+  bubbleTUser: { color: Brand.white },
+  bubbleTAdmin: { color: Brand.text },
+  bubbleTime: { fontSize: 10, color: Brand.textLight, marginTop: 4, alignSelf: 'flex-end' },
+  chatInput: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: Brand.border, backgroundColor: Brand.card },
+  chatTextInput: { flex: 1, backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 14, color: Brand.text, maxHeight: 100 },
+  sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Brand.orange, alignItems: 'center', justifyContent: 'center' },
+  resolvedBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12, backgroundColor: Brand.successBg },
+  resolvedT: { fontSize: 13, fontWeight: '700', color: Brand.success },
 });

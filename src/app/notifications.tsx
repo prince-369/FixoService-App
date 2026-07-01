@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
 
 import api from '@/lib/api';
 import { useAppSelector } from '@/store/hooks';
@@ -72,6 +73,18 @@ export default function NotificationsScreen() {
     try { await api.patch('/customer/notifications/read-all'); } catch { /* ignore */ }
   };
 
+  const deleteNotif = async (id: string) => {
+    setItems((p) => p.filter((n) => n._id !== id));
+    try { await api.delete(`/customer/notifications/${id}`); } catch { /* ignore */ }
+  };
+
+  const renderRightActions = () => (
+    <View style={styles.deleteAction}>
+      <Ionicons name="trash" size={20} color={Brand.white} />
+      <Text style={styles.deleteT}>Delete</Text>
+    </View>
+  );
+
   const unread = items.filter((n) => !n.isRead).length;
 
   return (
@@ -103,17 +116,19 @@ export default function NotificationsScreen() {
           renderItem={({ item }) => {
             const accent = colorFor(item.type);
             return (
-              <TouchableOpacity style={[styles.card, !item.isRead && styles.cardUnread]} onPress={() => markRead(item._id)} activeOpacity={0.8}>
-                <View style={[styles.iconWrap, { backgroundColor: accent.bg }]}>
-                  <Ionicons name={iconFor(item.type)} size={18} color={accent.color} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.title}>{item.title}</Text>
-                  <Text style={styles.msg}>{item.message}</Text>
-                  <Text style={styles.time}>{formatDateTime(item.createdAt)}</Text>
-                </View>
-                {!item.isRead ? <View style={styles.dot} /> : null}
-              </TouchableOpacity>
+              <Swipeable renderRightActions={renderRightActions} onSwipeableOpen={() => deleteNotif(item._id)} overshootRight={false}>
+                <TouchableOpacity style={[styles.card, !item.isRead && styles.cardUnread]} onPress={() => markRead(item._id)} activeOpacity={0.8}>
+                  <View style={[styles.iconWrap, { backgroundColor: accent.bg }]}>
+                    <Ionicons name={iconFor(item.type)} size={18} color={accent.color} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.title}>{item.title}</Text>
+                    <Text style={styles.msg}>{item.message}</Text>
+                    <Text style={styles.time}>{formatDateTime(item.createdAt)}</Text>
+                  </View>
+                  {!item.isRead ? <View style={styles.dot} /> : null}
+                </TouchableOpacity>
+              </Swipeable>
             );
           }}
           ListEmptyComponent={
@@ -156,6 +171,8 @@ const styles = StyleSheet.create({
   msg: { fontSize: 13, color: Brand.textMuted, marginTop: 2, lineHeight: 18 },
   time: { fontSize: 11, color: Brand.textLight, marginTop: 6 },
   dot: { height: 9, width: 9, borderRadius: 5, backgroundColor: Brand.orange, marginTop: 4 },
+  deleteAction: { backgroundColor: Brand.danger, justifyContent: 'center', alignItems: 'center', width: 80, borderRadius: 16, marginLeft: 8 },
+  deleteT: { color: Brand.white, fontSize: 11, fontWeight: '700', marginTop: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 70, paddingHorizontal: 40 },
   emptyIcon: { height: 84, width: 84, borderRadius: 42, backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   emptyTitle: { fontSize: 16, fontWeight: '800', color: Brand.text },

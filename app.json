@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "Fixo Service",
+    "name": "Fixo",
     "slug": "fixo-service",
     "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "fixoservice",
@@ -10,15 +11,33 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.fixo.service",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Fixo needs your location to find nearby service professionals and set your service address.",
+        "NSCameraUsageDescription": "Fixo needs camera access for your profile photo.",
+        "NSMicrophoneUsageDescription": "Fixo needs microphone to describe your service request using voice.",
+        "NSSpeechRecognitionUsageDescription": "Fixo uses speech recognition to convert your voice description to text."
+      }
     },
     "android": {
       "package": "com.fixo.service",
+      "versionCode": 2,
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#0f1c3f",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -42,11 +61,24 @@
       "expo-web-browser",
       "expo-image",
       "expo-audio",
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      [
+        "expo-notifications",
+        {
+          "color": "#0f1c3f"
+        }
+      ]
     ],
+    "extra": {
+      "eas": {
+        "projectId": "bb777d54-70ff-4b1c-b845-2b9e1502e703"
+      },
+      "router": {}
+    },
     "experiments": {
       "typedRoutes": false,
       "reactCompiler": true
-    }
+    },
+    "owner": "princecom572"
   }
 }
