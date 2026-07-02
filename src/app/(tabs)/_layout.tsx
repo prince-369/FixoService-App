@@ -45,15 +45,16 @@ export default function TabsLayout() {
       } catch { /* */ }
     };
     fetchCounts();
+    const interval = setInterval(fetchCounts, 15000);
 
     connectSocket(user._id);
     const socket = getSocket();
-    if (!socket) return;
-    const onNotif = () => setUnreadNotifs((p) => p + 1);
-    const onTicket = () => setUnreadSupport((p) => p + 1);
+    if (!socket) { clearInterval(interval); return; }
+    const onNotif = () => { setUnreadNotifs((p) => p + 1); };
+    const onTicket = () => { setUnreadSupport((p) => p + 1); };
     socket.on('notification_event', onNotif);
     socket.on('help_ticket_updated', onTicket);
-    return () => { socket.off('notification_event', onNotif); socket.off('help_ticket_updated', onTicket); };
+    return () => { clearInterval(interval); socket.off('notification_event', onNotif); socket.off('help_ticket_updated', onTicket); };
   }, [user?._id]);
 
   const profileBadge = unreadNotifs + unreadSupport;

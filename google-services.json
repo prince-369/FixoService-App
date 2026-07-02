@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "593015456740",
+    "project_id": "fixoservice9",
+    "storage_bucket": "fixoservice9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:593015456740:android:1bd877ce3702915034bdf1",
+        "android_client_info": {
+          "package_name": "com.fixo.service"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "593015456740-uc0a38sdfui55eujguskuca3p5rqe6g0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPNJBZP8-zAhNWSBi2o6uMzsijyILyGas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "593015456740-uc0a38sdfui55eujguskuca3p5rqe6g0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:593015456740:android:7f53a59b9b07811734bdf1",
+        "android_client_info": {
+          "package_name": "com.fixo.worker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "593015456740-uc0a38sdfui55eujguskuca3p5rqe6g0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPNJBZP8-zAhNWSBi2o6uMzsijyILyGas"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "593015456740-uc0a38sdfui55eujguskuca3p5rqe6g0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

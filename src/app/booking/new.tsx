@@ -16,6 +16,7 @@ import { Brand } from '@/lib/config';
 import { consumePickedLocation } from '@/lib/locationBridge';
 import { getSocket, connectSocket } from '@/lib/socket';
 import { useAppSelector } from '@/store/hooks';
+import { toast } from '@/components/Toast';
 
 type AvailabilitySummary = { total: number; active: number; inactive: number; radiusMeters: number };
 
@@ -518,7 +519,7 @@ const styles = StyleSheet.create({
   catIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: Brand.orange, alignItems: 'center', justifyContent: 'center' },
   catLabel: { color: '#cfd8ee', fontSize: 12 },
   catName: { color: Brand.white, fontSize: 18, fontWeight: '800', marginTop: 1 },
-  scroll: { padding: 16, paddingBottom: 30, gap: 14 },
+  scroll: { padding: 16, paddingBottom: 100, gap: 14 },
   card: { backgroundColor: Brand.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   cardTitle: { fontSize: 15.5, fontWeight: '800', color: Brand.text },

@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginCustomer, googleAuthCustomer, clearError } from '@/store/authSlice';
-import { useGoogleAuth } from '@/lib/googleAuth';
+import { signInWithGoogle, statusCodes } from '@/lib/googleAuth';
 import { Brand } from '@/lib/config';
 import { LOGO } from '@/lib/assets';
 import api, { getApiError } from '@/lib/api';
@@ -268,26 +268,24 @@ export default function LoginScreen() {
   const [pwUserId, setPwUserId] = useState('');
   const [pwEmail, setPwEmail] = useState('');
 
-  const [request, googleResponse, promptGoogle] = useGoogleAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  // DIAGNOSTIC: prints the exact redirect URI Google must have whitelisted.
-  useEffect(() => {
-    if (request?.redirectUri) console.log('[google] REDIRECT URI =', request.redirectUri);
-  }, [request?.redirectUri]);
-
-  // When Google returns an id_token, hand it to the server.
-  useEffect(() => {
-    if (googleResponse?.type === 'success') {
-      const idToken = googleResponse.params?.id_token;
-      if (idToken) {
-        dispatch(googleAuthCustomer({ credential: idToken })).then((res) => {
-          if (googleAuthCustomer.fulfilled.match(res) && (res.payload?.accessToken || res.payload?.token)) {
-            router.replace('/(tabs)');
-          }
-        });
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      const idToken = await signInWithGoogle();
+      const res = await dispatch(googleAuthCustomer({ credential: idToken }));
+      if (googleAuthCustomer.fulfilled.match(res) && (res.payload?.accessToken || res.payload?.token)) {
+        router.replace('/(tabs)');
       }
+    } catch (e: any) {
+      if (e?.code !== statusCodes.SIGN_IN_CANCELLED) {
+        console.log('[Google] error:', e?.message);
+      }
+    } finally {
+      setGoogleLoading(false);
     }
-  }, [googleResponse, dispatch, router]);
+  };
 
   const handleLogin = async () => {
     if (!emailOrPhone.trim() || !password) return;
@@ -377,9 +375,9 @@ export default function LoginScreen() {
                 <View style={styles.divider} />
               </View>
 
-              <TouchableOpacity style={styles.googleBtn} onPress={() => promptGoogle()} activeOpacity={0.9}>
+              <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn} activeOpacity={0.9} disabled={googleLoading}>
                 <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.googleIcon} />
-                <Text style={styles.googleText}>Continue with Google</Text>
+                <Text style={styles.googleText}>{googleLoading ? 'Signing in...' : 'Continue with Google'}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.linkRow}>

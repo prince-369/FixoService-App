@@ -9,7 +9,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { registerCustomer, clearError } from '@/store/authSlice';
+import { registerCustomer, googleAuthCustomer, clearError } from '@/store/authSlice';
+import { signInWithGoogle, statusCodes } from '@/lib/googleAuth';
 import { Brand } from '@/lib/config';
 import { LOGO } from '@/lib/assets';
 
@@ -45,6 +46,24 @@ export default function RegisterScreen() {
     const result = await dispatch(registerCustomer({ fullName, email, phone, password }));
     if (registerCustomer.fulfilled.match(result)) {
       router.replace('/(tabs)');
+    }
+  };
+
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const handleGoogleSignUp = async () => {
+    try {
+      setGoogleLoading(true);
+      const idToken = await signInWithGoogle();
+      const res = await dispatch(googleAuthCustomer({ credential: idToken }));
+      if (googleAuthCustomer.fulfilled.match(res) && (res.payload?.accessToken || res.payload?.token)) {
+        router.replace('/(tabs)');
+      }
+    } catch (e: any) {
+      if (e?.code !== statusCodes.SIGN_IN_CANCELLED) {
+        console.log('[Google Register] error:', e?.message);
+      }
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -170,6 +189,17 @@ export default function RegisterScreen() {
                 {isLoading ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.primaryText}>Sign Up</Text>}
               </TouchableOpacity>
 
+              <View style={styles.dividerRow}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.divider} />
+              </View>
+
+              <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignUp} activeOpacity={0.9} disabled={googleLoading}>
+                <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.googleIcon} />
+                <Text style={styles.googleText}>{googleLoading ? 'Signing up...' : 'Sign up with Google'}</Text>
+              </TouchableOpacity>
+
             </View>
 
             <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.linkRow}>
@@ -217,4 +247,10 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 18, marginBottom: 4 },
   linkMuted: { color: '#aab8d8', fontSize: 13 },
   link: { color: Brand.orange, fontSize: 13, fontWeight: '800' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
+  divider: { flex: 1, height: 1, backgroundColor: Brand.border },
+  dividerText: { color: Brand.textLight, fontSize: 12, marginHorizontal: 12 },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Brand.white, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingVertical: 14 },
+  googleIcon: { width: 18, height: 18 },
+  googleText: { fontSize: 14, fontWeight: '700', color: Brand.text },
 });
