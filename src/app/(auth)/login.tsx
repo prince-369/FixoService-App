@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -274,13 +274,20 @@ export default function LoginScreen() {
     try {
       setGoogleLoading(true);
       const idToken = await signInWithGoogle();
+      console.log('[Google] Got idToken, sending to server...');
       const res = await dispatch(googleAuthCustomer({ credential: idToken }));
+      console.log('[Google] Server response:', JSON.stringify(res.payload));
       if (googleAuthCustomer.fulfilled.match(res) && (res.payload?.accessToken || res.payload?.token)) {
         router.replace('/(tabs)');
+      } else if (!googleAuthCustomer.fulfilled.match(res)) {
+        const err = res.payload as any;
+        const msg = typeof err === 'string' ? err : err?.message || 'Google sign-in failed';
+        Alert.alert('Google Sign-In Failed', msg);
       }
     } catch (e: any) {
       if (e?.code !== statusCodes.SIGN_IN_CANCELLED) {
-        console.log('[Google] error:', e?.message);
+        console.log('[Google] error:', e?.code, e?.message);
+        Alert.alert('Google Error', e?.message || 'Something went wrong');
       }
     } finally {
       setGoogleLoading(false);
