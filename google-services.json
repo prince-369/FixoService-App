@@ -14,7 +14,7 @@
       },
       "oauth_client": [
         {
-          "client_id": "593015456740-jfu54udtadj6ep8acdpk52qdc6e2n5rj.apps.googleusercontent.com",
+          "client_id": "593015456740-67p2k0qqhk0rgp67fa9lk56limhddo1n.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.fixo.service",
@@ -22,11 +22,11 @@
           }
         },
         {
-          "client_id": "593015456740-vl0jp63mvk38gbevdg212300m24n57u1.apps.googleusercontent.com",
+          "client_id": "593015456740-jim5u39rjl130616id5qrgvrdd3k08kv.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.fixo.service",
-            "certificate_hash": "3d2791073f4d2a69755145d00a0c10b596264684"
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
           }
         },
         {
@@ -59,19 +59,19 @@
       },
       "oauth_client": [
         {
-          "client_id": "593015456740-19murt0d5umiv17pqts9a05pod9dtiae.apps.googleusercontent.com",
+          "client_id": "593015456740-gf0dfk87ch64dje462q7947ngmfkocbi.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.fixo.worker",
-            "certificate_hash": "3d2791073f4d2a69755145d00a0c10b596264684"
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
           }
         },
         {
-          "client_id": "593015456740-afhbs23eo6tn755sv9u2k9rv4vnpffm6.apps.googleusercontent.com",
+          "client_id": "593015456740-sbrakptr67k4ieub2pfs3l20rpmbveu3.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.fixo.worker",
-            "certificate_hash": "750c880cb1ed306f51aa000c908d891895e967d2"
+            "certificate_hash": "814c28243370a3aece600b8c8773ff11e8c8c41a"
           }
         },
         {
