@@ -4,6 +4,15 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import { applyGlobalFont } from '@/lib/globalFont';
 
 import { store } from '@/store';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -88,6 +97,25 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // Brand typeface — Plus Jakarta Sans, applied app-wide (see globalFont).
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+  applyGlobalFont();
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.splash}>
+        <Image source={LOGO} style={styles.splashLogo} resizeMode="contain" />
+        <ActivityIndicator color={Brand.orange} style={{ marginTop: 20 }} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <Provider store={store}>

@@ -81,8 +81,8 @@ export default function HomeScreen() {
 
         <View style={styles.greetRow}>
           <View>
-            <Text style={styles.hi}>Hello,</Text>
-            <Text style={styles.name}>{user?.fullName?.split(' ')[0] || 'there'} 👋</Text>
+            <Text style={styles.hi}>Hello, {user?.fullName?.split(' ')[0] || 'there'} 👋</Text>
+            <Text style={styles.name}>What do you need fixed?</Text>
           </View>
         </View>
 

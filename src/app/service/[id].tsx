@@ -64,7 +64,10 @@ export default function ServiceDetailScreen() {
             <Ionicons name={categoryIcon(title)} size={30} color={Brand.white} />
           </View>
           <Text style={styles.heroTitle} numberOfLines={2}>{title}</Text>
-          <Text style={styles.heroSub}>Verified pros · Transparent pricing</Text>
+          <Text style={styles.heroSub}>
+            Verified pros · Transparent pricing
+            {cat?.priceStartsFrom ? `  ·  from ₹${cat.priceStartsFrom}` : ''}
+          </Text>
         </View>
       </SafeAreaView>
 
