@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -534,7 +534,10 @@ export default function BookingDetailScreen() {
 
       {/* Cancel reason modal */}
       <Modal visible={showCancel} transparent animationType="slide" onRequestClose={() => setShowCancel(false)}>
-        <View style={styles.modalBg}>
+        <KeyboardAvoidingView
+          style={styles.modalBg}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Cancel Booking</Text>
             <Text style={styles.modalSub}>Please tell us why you&apos;re cancelling. Workers will be notified.</Text>
@@ -553,7 +556,7 @@ export default function BookingDetailScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

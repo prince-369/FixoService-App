@@ -10,6 +10,7 @@ import { useAppSelector } from '@/store/hooks';
 import { connectSocket, getSocket } from '@/lib/socket';
 import { Brand } from '@/lib/config';
 import { formatDateTime } from '@/lib/format';
+import { badgeBus } from '@/lib/badgeBus';
 
 interface Notif {
   _id: string;
@@ -52,6 +53,12 @@ export default function NotificationsScreen() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Keep the shared badge store (home bell + profile tab) in sync with the list,
+  // so reading/deleting here clears those badges instantly.
+  useEffect(() => {
+    badgeBus.setNotifs(items.filter((n) => !n.isRead).length);
+  }, [items]);
 
   useEffect(() => {
     if (!user?._id) return;

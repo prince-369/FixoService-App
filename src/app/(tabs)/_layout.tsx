@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { useAppSelector } from '@/store/hooks';
 import api from '@/lib/api';
 import { connectSocket, getSocket } from '@/lib/socket';
 import { getSeenTickets, countUnreadTickets } from '@/lib/ticketSeen';
+import { badgeBus, useProfileBadge } from '@/lib/badgeBus';
 
 function BadgeIcon({ name, color, size, badge }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number; badge?: number }) {
   return (
@@ -26,8 +27,7 @@ function BadgeIcon({ name, color, size, badge }: { name: keyof typeof Ionicons.g
 export default function TabsLayout() {
   const { user } = useAppSelector((s) => s.auth);
   const insets = useSafeAreaInsets();
-  const [unreadNotifs, setUnreadNotifs] = useState(0);
-  const [unreadSupport, setUnreadSupport] = useState(0);
+  const profileBadge = useProfileBadge();
 
   useEffect(() => {
     if (!user?._id) return;
@@ -39,9 +39,9 @@ export default function TabsLayout() {
           getSeenTickets(),
         ]);
         const notifs = notifRes.data?.notifications || [];
-        setUnreadNotifs(notifs.filter((n: any) => !n.isRead).length);
+        badgeBus.setNotifs(notifs.filter((n: any) => !n.isRead).length);
         const tickets = ticketRes.data?.tickets || [];
-        setUnreadSupport(countUnreadTickets(tickets, seen));
+        badgeBus.setSupport(countUnreadTickets(tickets, seen));
       } catch { /* */ }
     };
     fetchCounts();
@@ -50,14 +50,12 @@ export default function TabsLayout() {
     connectSocket(user._id);
     const socket = getSocket();
     if (!socket) { clearInterval(interval); return; }
-    const onNotif = () => { setUnreadNotifs((p) => p + 1); };
-    const onTicket = () => { setUnreadSupport((p) => p + 1); };
+    const onNotif = () => { badgeBus.incNotifs(); };
+    const onTicket = () => { badgeBus.incSupport(); };
     socket.on('notification_event', onNotif);
     socket.on('help_ticket_updated', onTicket);
     return () => { clearInterval(interval); socket.off('notification_event', onNotif); socket.off('help_ticket_updated', onTicket); };
   }, [user?._id]);
-
-  const profileBadge = unreadNotifs + unreadSupport;
 
   return (
     <Tabs

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { useAudioRecorder, RecordingPresets, setAudioModeAsync, requestRecordingPermissionsAsync } from 'expo-audio';
+import { useAudioRecorder, useAudioPlayer, useAudioPlayerStatus, RecordingPresets, setAudioModeAsync, requestRecordingPermissionsAsync } from 'expo-audio';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -87,8 +87,36 @@ export default function NewBookingScreen() {
   const [recording, setRecording] = useState(false);
   const [listening, setListening] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Playback of the recorded note so the customer can hear what they said.
+  const audioSource = useMemo(() => (voiceUri ? { uri: voiceUri } : null), [voiceUri]);
+  const player = useAudioPlayer(audioSource);
+  const playerStatus = useAudioPlayerStatus(player);
+  const isPlaying = playerStatus?.playing ?? false;
   const speechSubs = useRef<{ remove: () => void }[]>([]);
   const speechBase = useRef('');
+
+  const togglePlayVoice = async () => {
+    if (!voiceUri) return;
+    try {
+      if (isPlaying) {
+        player.pause();
+        return;
+      }
+      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+      // Restart from the beginning if the previous playback had finished.
+      const cur = playerStatus?.currentTime ?? 0;
+      const dur = playerStatus?.duration ?? 0;
+      if (playerStatus?.didJustFinish || (dur > 0 && cur >= dur - 0.15)) {
+        await player.seekTo(0);
+      }
+      player.play();
+    } catch { /* ignore playback errors */ }
+  };
+
+  const discardVoice = () => {
+    try { player.pause(); } catch { /* ignore */ }
+    setVoiceUri(null);
+  };
 
   // Pick up a location chosen on the map screen when we return to this screen.
   useFocusEffect(useCallback(() => {
@@ -343,10 +371,15 @@ export default function NewBookingScreen() {
               </TouchableOpacity>
             ) : voiceUri ? (
               <View style={styles.voiceAttached}>
-                <Ionicons name="mic" size={16} color={Brand.success} />
-                <Text style={styles.voiceAttachedText}>Voice note attached</Text>
-                <TouchableOpacity onPress={() => setVoiceUri(null)}>
-                  <Ionicons name="close-circle" size={20} color={Brand.danger} />
+                <TouchableOpacity style={styles.playBtn} onPress={togglePlayVoice} activeOpacity={0.85}>
+                  <Ionicons name={isPlaying ? 'pause' : 'play'} size={18} color={Brand.white} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.voiceAttachedText}>Voice note attached</Text>
+                  <Text style={styles.voicePlayHint}>{isPlaying ? 'Playing… tap to pause' : 'Tap play to hear it back'}</Text>
+                </View>
+                <TouchableOpacity onPress={discardVoice} hitSlop={8}>
+                  <Ionicons name="close-circle" size={22} color={Brand.danger} />
                 </TouchableOpacity>
               </View>
             ) : (
@@ -533,8 +566,10 @@ const styles = StyleSheet.create({
   recDot: { height: 10, width: 10, borderRadius: 5, backgroundColor: Brand.danger },
   recText: { color: Brand.orangeDark, fontWeight: '800', fontSize: 13.5 },
   recTextActive: { color: Brand.danger, fontWeight: '800', fontSize: 13.5 },
-  voiceAttached: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Brand.successBg, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 14, marginTop: 10 },
-  voiceAttachedText: { flex: 1, color: Brand.success, fontWeight: '700', fontSize: 13.5 },
+  voiceAttached: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Brand.successBg, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, marginTop: 10 },
+  playBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Brand.success, alignItems: 'center', justifyContent: 'center' },
+  voiceAttachedText: { color: Brand.success, fontWeight: '800', fontSize: 13.5 },
+  voicePlayHint: { color: '#059669', fontWeight: '600', fontSize: 11, marginTop: 1 },
   mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.navy, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },
   mapBtnText: { color: Brand.white, fontWeight: '800', fontSize: 14 },
   locBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.navy50, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },

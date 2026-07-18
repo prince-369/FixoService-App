@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert,
+  ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -198,7 +198,10 @@ export default function RewardsScreen() {
 
       {/* Claim modal */}
       <Modal visible={!!claimM} transparent animationType="slide" onRequestClose={() => setClaimM(null)}>
-        <View style={styles.modalBg}>
+        <KeyboardAvoidingView
+          style={styles.modalBg}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalCard}>
             <View style={styles.modalIcon}><Ionicons name="gift" size={26} color={Brand.success} /></View>
             <Text style={styles.modalTitle}>Claim {formatCurrency(claimM?.rewardAmount)}</Text>
@@ -218,7 +221,7 @@ export default function RewardsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

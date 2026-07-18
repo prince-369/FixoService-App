@@ -16,8 +16,9 @@ import { LOGO } from '@/lib/assets';
 
 // Password strength rules
 const PASSWORD_RULES = [
-  { label: 'Minimum 8 characters', test: (p: string) => p.length >= 8 },
+  { label: 'Minimum 8 characters', test: (p: string) => p.length >= 8 && p.length <= 64 },
   { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
   { label: 'One number', test: (p: string) => /\d/.test(p) },
   { label: 'One special character', test: (p: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(p) },
 ];
@@ -34,7 +35,6 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   const passwordStrong = isStrongPassword(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
@@ -130,6 +130,7 @@ export default function RegisterScreen() {
                   placeholder="Strong password"
                   placeholderTextColor={Brand.textLight}
                   secureTextEntry={!showPass}
+                  maxLength={64}
                   value={password}
                   onChangeText={setPassword}
                 />
@@ -160,12 +161,13 @@ export default function RegisterScreen() {
                   style={styles.input}
                   placeholder="Re-enter password"
                   placeholderTextColor={Brand.textLight}
-                  secureTextEntry={!showConfirmPass}
+                  secureTextEntry={!showPass}
+                  maxLength={64}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                 />
-                <TouchableOpacity onPress={() => setShowConfirmPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Brand.textMuted} />
+                <TouchableOpacity onPress={() => setShowPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Brand.textMuted} />
                 </TouchableOpacity>
               </View>
 

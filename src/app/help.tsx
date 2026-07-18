@@ -13,6 +13,7 @@ import { useAppSelector } from '@/store/hooks';
 import { connectSocket } from '@/lib/socket';
 import { Brand } from '@/lib/config';
 import { markTicketSeen, getSeenTickets, clearTicketSeen, countUnreadTickets } from '@/lib/ticketSeen';
+import { badgeBus } from '@/lib/badgeBus';
 
 const FAQS = [
   { q: 'How do I book a service?', a: 'Pick a category from the home screen, describe your work, and nearby workers will send bids. Accept the one you like.' },
@@ -100,6 +101,12 @@ export default function HelpScreen() {
   const [seenTickets, setSeenTickets] = useState<Set<string>>(new Set());
 
   useEffect(() => { getSeenTickets().then(setSeenTickets); }, []);
+
+  // Keep the shared support-badge (Profile tab) in sync as tickets are seen/updated,
+  // so opening a ticket clears the badge instantly instead of on the next poll.
+  useEffect(() => {
+    badgeBus.setSupport(countUnreadTickets(tickets, seenTickets));
+  }, [tickets, seenTickets]);
 
   const openTicket = (t: Ticket) => {
     setActiveTicket(t);

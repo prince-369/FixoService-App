@@ -11,6 +11,8 @@ import api from '@/lib/api';
 import { Brand } from '@/lib/config';
 import { LOGO } from '@/lib/assets';
 import LocationHeader from '@/components/LocationHeader';
+import ActiveBookingsHome from '@/components/ActiveBookingsHome';
+import { badgeBus, useNotifsUnread } from '@/lib/badgeBus';
 
 interface Category {
   _id: string;
@@ -28,7 +30,7 @@ export default function HomeScreen() {
   const [banners, setBanners] = useState<{ id: string; image: string; alt: string }[]>([]);
   const bannerRef = useRef<FlatList>(null);
   const [bannerIdx, setBannerIdx] = useState(0);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = useNotifsUnread();
   const screenWidth = Dimensions.get('window').width - 32; // account for padding
 
   useEffect(() => {
@@ -42,9 +44,9 @@ export default function HomeScreen() {
       .then((r) => r.json())
       .then((data) => { if (active && data?.banners) setBanners(data.banners); })
       .catch(() => {});
-    // Fetch unread notification count
+    // Fetch unread notification count into the shared badge store
     api.get('/customer/notifications')
-      .then((res) => { if (active) setUnreadCount((res.data?.notifications || []).filter((n: any) => !n.isRead).length); })
+      .then((res) => { if (active) badgeBus.setNotifs((res.data?.notifications || []).filter((n: any) => !n.isRead).length); })
       .catch(() => {});
     return () => { active = false; };
   }, []);
@@ -138,6 +140,9 @@ export default function HomeScreen() {
             <Ionicons name="shield-checkmark" size={54} color="rgba(255,255,255,0.35)" />
           </LinearGradient>
         )}
+
+        {/* Active bookings — live status, right below the banner */}
+        <ActiveBookingsHome />
 
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>All Services</Text>

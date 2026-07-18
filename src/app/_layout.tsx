@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider } from 'react-redux';
 import {
   useFonts,
@@ -117,15 +118,17 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <Provider store={store}>
-        <LocationProvider>
-          <StatusBar style="dark" />
-          <RootNavigator />
-          <ToastProvider />
-        </LocationProvider>
-      </Provider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <Provider store={store}>
+          <LocationProvider>
+            <StatusBar style="dark" />
+            <RootNavigator />
+            <ToastProvider />
+          </LocationProvider>
+        </Provider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
