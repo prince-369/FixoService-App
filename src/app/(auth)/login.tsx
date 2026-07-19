@@ -277,9 +277,22 @@ export default function LoginScreen() {
       console.log('[Google] Got idToken, sending to server...');
       const res = await dispatch(googleAuthCustomer({ credential: idToken }));
       console.log('[Google] Server response:', JSON.stringify(res.payload));
-      if (googleAuthCustomer.fulfilled.match(res) && (res.payload?.accessToken || res.payload?.token)) {
-        router.replace('/(tabs)');
-      } else if (!googleAuthCustomer.fulfilled.match(res)) {
+      if (googleAuthCustomer.fulfilled.match(res)) {
+        const p: any = res.payload;
+        if (p?.accessToken || p?.token) {
+          router.replace('/(tabs)');
+        } else if (p?.needsPhone) {
+          // New Google account — send them to sign up (where they add a phone number).
+          Alert.alert(
+            'Naya account?',
+            'Aapka Google account abhi registered nahi hai. Sign up karke apna phone number add karein.',
+            [
+              { text: 'Sign up', onPress: () => router.replace('/(auth)/register') },
+              { text: 'Cancel', style: 'cancel' },
+            ],
+          );
+        }
+      } else {
         const err = res.payload as any;
         const msg = typeof err === 'string' ? err : err?.message || 'Google sign-in failed';
         Alert.alert('Google Sign-In Failed', msg);

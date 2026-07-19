@@ -199,6 +199,11 @@ export default function HomeScreen() {
   );
 }
 
+// Explicit square-card size: scroll padding (20×2) + one 14px gap, split across 2 cards.
+// Numeric width/height avoids the RN gotcha where aspectRatio + percentage width inside
+// a flexWrap row can compute to zero height (which hid the cards entirely).
+const CARD_W = (Dimensions.get('window').width - 40 - 14) / 2;
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Brand.bg },
   headerSafe: { backgroundColor: Brand.navy, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
@@ -230,7 +235,7 @@ const styles = StyleSheet.create({
   emptyText: { color: Brand.textMuted, fontSize: 13.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   catCard: {
-    width: '47%', aspectRatio: 1, borderRadius: 20, overflow: 'hidden', backgroundColor: Brand.card,
+    width: CARD_W, height: CARD_W, borderRadius: 20, overflow: 'hidden', backgroundColor: Brand.card,
     shadowColor: '#0f1c3f', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
   catFallback: { backgroundColor: Brand.orange50, alignItems: 'center', justifyContent: 'center' },

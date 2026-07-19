@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { registerCustomer, googleAuthCustomer, clearError } from '@/store/authSlice';
+import { registerCustomer, googleAuthCustomer, completeGoogleCustomer, clearError } from '@/store/authSlice';
 import { signInWithGoogle, statusCodes } from '@/lib/googleAuth';
 import { Brand } from '@/lib/config';
 import { LOGO } from '@/lib/assets';
@@ -53,10 +53,29 @@ export default function RegisterScreen() {
   const handleGoogleSignUp = async () => {
     try {
       setGoogleLoading(true);
+      dispatch(clearError());
       const idToken = await signInWithGoogle();
       const res = await dispatch(googleAuthCustomer({ credential: idToken }));
-      if (googleAuthCustomer.fulfilled.match(res) && (res.payload?.accessToken || res.payload?.token)) {
-        router.replace('/(tabs)');
+      if (!googleAuthCustomer.fulfilled.match(res)) return;
+
+      const p: any = res.payload;
+      // Existing user → straight in.
+      if (p?.accessToken || p?.token) { router.replace('/(tabs)'); return; }
+
+      // New Google user → server needs a phone number to create the account.
+      if (p?.needsPhone) {
+        const gd = p.googleData || p;
+        const ph = phone.trim();
+        if (!ph) {
+          Alert.alert('Phone number needed', 'Apna phone number upar daalein, phir "Continue with Google" dobara dabayein — account ban jayega.');
+          return;
+        }
+        const done = await dispatch(completeGoogleCustomer({
+          phone: ph, email: gd.email, fullName: gd.fullName, googleId: gd.googleId, profileImage: gd.profileImage,
+        }));
+        if (completeGoogleCustomer.fulfilled.match(done) && (done.payload?.accessToken || done.payload?.token)) {
+          router.replace('/(tabs)');
+        }
       }
     } catch (e: any) {
       if (e?.code !== statusCodes.SIGN_IN_CANCELLED) {

@@ -91,7 +91,9 @@ export const registerCustomer = createAsyncThunk(
   }
 );
 
-// Google sign-in: sends the Google id_token to the server.
+// Google sign-in: sends the Google id_token to the server. For a NEW user the server
+// replies { needsPhone: true, googleData } instead of a token — the screen then
+// collects a phone number and calls completeGoogleCustomer below.
 export const googleAuthCustomer = createAsyncThunk(
   'auth/google',
   async (data: { credential: string }, { rejectWithValue }) => {
@@ -100,6 +102,22 @@ export const googleAuthCustomer = createAsyncThunk(
       return res.data;
     } catch (err) {
       return rejectWithValue(getApiError(err, 'Google sign-in failed'));
+    }
+  }
+);
+
+// Finish a Google sign-up by attaching a phone number (creates the account).
+export const completeGoogleCustomer = createAsyncThunk(
+  'auth/googleComplete',
+  async (
+    data: { phone: string; email: string; fullName: string; googleId: string; profileImage?: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const res = await api.post('/auth/customer/google/complete', data);
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(getApiError(err, 'Could not complete sign up'));
     }
   }
 );
@@ -165,12 +183,16 @@ const authSlice = createSlice({
         if (a.payload?.accessToken || a.payload?.token) {
           handleAuthSuccess(s, a.payload);
         } else {
-          // New Google user needs to add a phone number (handled later) — keep on login for now.
+          // New Google user → server asked for a phone number. Not an error: the
+          // screen reads `needsPhone` from the payload and collects the phone, then
+          // calls completeGoogleCustomer.
           s.isLoading = false;
-          s.error = 'Please sign up with your phone number first.';
         }
       })
       .addCase(googleAuthCustomer.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; })
+      .addCase(completeGoogleCustomer.pending, (s) => { s.isLoading = true; s.error = null; })
+      .addCase(completeGoogleCustomer.fulfilled, (s, a) => handleAuthSuccess(s, a.payload))
+      .addCase(completeGoogleCustomer.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; })
       .addCase(restoreSession.pending, (s) => { s.isLoading = true; })
       .addCase(restoreSession.fulfilled, (s, a) => {
         s.user = a.payload.user;
