@@ -12,6 +12,7 @@ import { Brand } from '@/lib/config';
 import { LOGO } from '@/lib/assets';
 import LocationHeader from '@/components/LocationHeader';
 import ActiveBookingsHome from '@/components/ActiveBookingsHome';
+import HomeStory from '@/components/HomeStory';
 import { badgeBus, useNotifsUnread } from '@/lib/badgeBus';
 
 interface Category {
@@ -168,23 +169,25 @@ export default function HomeScreen() {
                 activeOpacity={0.85}
                 onPress={() => router.push({ pathname: '/service/[id]', params: { id: cat._id, name: cat.name } })}
               >
-                {/* Square card: the category image fills it as the background. */}
-                {cat.image ? (
-                  <Image source={{ uri: cat.image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
-                ) : (
-                  <View style={[StyleSheet.absoluteFill, styles.catFallback]}>
-                    <Ionicons name="construct" size={40} color={Brand.orange} />
-                  </View>
-                )}
-                {/* Dark scrim so the text stays readable over any image. */}
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.82)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.catOverlay}>
+                {/* Image sits in its own frame; the details live on a solid surface
+                    below it, so text contrast never depends on how bright the photo is. */}
+                <View style={styles.catImgWrap}>
+                  {cat.image ? (
+                    <Image source={{ uri: cat.image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+                  ) : (
+                    <View style={[StyleSheet.absoluteFill, styles.catFallback]}>
+                      <Ionicons name="construct" size={38} color={Brand.orange} />
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.catBody}>
                   <Text style={styles.catName} numberOfLines={2}>{cat.name}</Text>
+                  {cat.priceStartsFrom ? (
+                    <Text style={styles.catPrice}>
+                      from <Text style={styles.catPriceValue}>₹{cat.priceStartsFrom}</Text>
+                    </Text>
+                  ) : null}
                   <View style={styles.catBookRow}>
                     <Text style={styles.catBookText}>Book now</Text>
                     <Ionicons name="arrow-forward" size={12} color={Brand.orange} />
@@ -194,6 +197,9 @@ export default function HomeScreen() {
             ))}
           </View>
         )}
+
+        {/* How Fixo works, describing a job, why Fixo, FAQ — mirrors the web home. */}
+        <HomeStory />
       </ScrollView>
     </View>
   );
@@ -235,12 +241,18 @@ const styles = StyleSheet.create({
   emptyText: { color: Brand.textMuted, fontSize: 13.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   catCard: {
-    width: CARD_W, height: CARD_W, borderRadius: 20, overflow: 'hidden', backgroundColor: Brand.card,
-    shadowColor: '#0f1c3f', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
+    width: CARD_W, borderRadius: 18, overflow: 'hidden', backgroundColor: Brand.card,
+    borderWidth: 1, borderColor: Brand.border,
+    shadowColor: '#0f1c3f', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
+  // Explicit numeric height (4:3 of the card width) — `aspectRatio` on a child inside a
+  // flexWrap row is the RN gotcha that collapsed these cards to zero height before.
+  catImgWrap: { width: '100%', height: Math.round((CARD_W * 3) / 4), backgroundColor: Brand.bg },
   catFallback: { backgroundColor: Brand.orange50, alignItems: 'center', justifyContent: 'center' },
-  catOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 12 },
-  catName: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  catBookRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  catBookText: { fontSize: 12.5, color: Brand.orange, fontWeight: '800' },
+  catBody: { paddingHorizontal: 11, paddingTop: 9, paddingBottom: 11 },
+  catName: { fontSize: 14, fontWeight: '800', color: Brand.text, lineHeight: 18 },
+  catPrice: { marginTop: 3, fontSize: 11.5, color: Brand.textLight },
+  catPriceValue: { fontWeight: '800', color: Brand.text },
+  catBookRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7 },
+  catBookText: { fontSize: 12, color: Brand.orange, fontWeight: '800' },
 });
