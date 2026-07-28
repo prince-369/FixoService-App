@@ -13,6 +13,7 @@ import { connectSocket, getSocket } from '@/lib/socket';
 import { Brand } from '@/lib/config';
 import { formatCurrency, formatDateTime, statusOf } from '@/lib/format';
 import TrackingMap from '@/components/TrackingMap';
+import FindingWorkersLoader from '@/components/FindingWorkersLoader';
 
 interface Worker { _id: string; fullName: string; phone?: string; rating?: number | { average?: number; count?: number }; }
 
@@ -26,6 +27,7 @@ interface NegotiationEntry { by: 'customer' | 'worker'; amount: number; message?
 interface Bid {
   _id: string;
   priceOffered: number;
+  message?: string;
   worker?: Worker | string;
   negotiationStatus?: string;
   negotiations?: NegotiationEntry[];
@@ -349,14 +351,13 @@ export default function BookingDetailScreen() {
         {['finding_workers', 'bids_received'].includes(booking.status) ? (
           <View style={styles.card}>
             <View style={styles.cardHead}>
-              <Ionicons name="pricetags-outline" size={18} color={Brand.navy} />
-              <Text style={styles.cardTitle}>Worker Bids ({workerBids.length})</Text>
+              <Ionicons name={workerBids.length === 0 ? 'radio-outline' : 'pricetags-outline'} size={18} color={Brand.navy} />
+              <Text style={styles.cardTitle}>
+                {workerBids.length === 0 ? 'Finding Nearby Workers' : `Worker Bids (${workerBids.length})`}
+              </Text>
             </View>
             {workerBids.length === 0 ? (
-              <View style={styles.waiting}>
-                <ActivityIndicator color={Brand.orange} size="small" />
-                <Text style={styles.waitingText}>Waiting for workers to bid…</Text>
-              </View>
+              <FindingWorkersLoader />
             ) : (
               workerBids.map((bid) => {
                 const w = bid.worker as Worker;
@@ -381,6 +382,13 @@ export default function BookingDetailScreen() {
                       </View>
                       <Text style={styles.bidPrice}>{formatCurrency(effective)}</Text>
                     </View>
+
+                    {bid.message ? (
+                      <View style={styles.bidMsg}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={13} color={Brand.textMuted} style={{ marginTop: 1 }} />
+                        <Text style={styles.bidMsgT}>{bid.message}</Text>
+                      </View>
+                    ) : null}
 
                     {ns === 'worker_offered' && last ? (
                       <View style={styles.negNotice}>
@@ -614,6 +622,8 @@ const styles = StyleSheet.create({
   bidRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   bidRating: { fontSize: 12, color: Brand.textMuted, fontWeight: '600' },
   bidPrice: { fontSize: 18, fontWeight: '900', color: Brand.success },
+  bidMsg: { flexDirection: 'row', gap: 7, backgroundColor: Brand.bg, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9, marginTop: 10 },
+  bidMsgT: { flex: 1, fontSize: 13, lineHeight: 18.5, color: Brand.text },
   negNotice: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Brand.orange50, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 10 },
   negHint: { fontSize: 12.5, color: Brand.orangeDark, fontWeight: '700', flex: 1 },
   bidActions: { flexDirection: 'row', gap: 8, marginTop: 12 },

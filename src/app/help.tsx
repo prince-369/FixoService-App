@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -12,8 +12,9 @@ import api, { getApiError } from '@/lib/api';
 import { useAppSelector } from '@/store/hooks';
 import { connectSocket } from '@/lib/socket';
 import { Brand } from '@/lib/config';
-import { markTicketSeen, getSeenTickets, clearTicketSeen, countUnreadTickets } from '@/lib/ticketSeen';
+import { markTicketSeen, getTicketSeenMap, peekTicketSeenMap, unreadTicketIds, lastAdminMsgTs } from '@/lib/ticketSeen';
 import { badgeBus } from '@/lib/badgeBus';
+import { useAppActive, useForegroundSync, useSocketReconnectSync, useSyncGuard } from '@/lib/appLifecycle';
 
 const FAQS = [
   { q: 'How do I book a service?', a: 'Pick a category from the home screen, describe your work, and nearby workers will send bids. Accept the one you like.' },
@@ -31,14 +32,32 @@ const CATEGORIES = [
   { label: 'Other', value: 'other' },
 ];
 
-interface ChatMsg { sender: 'user' | 'bot' | 'admin'; message: string; timestamp: string; }
-interface Ticket { _id: string; ticketNumber?: string; category: string; status: string; chatHistory: ChatMsg[]; createdAt: string; }
+interface ChatMsg { _id?: string; sender: 'user' | 'bot' | 'admin'; message: string; timestamp: string; }
+interface Ticket { _id: string; ticketNumber?: string; category: string; status: string; chatHistory: ChatMsg[]; createdAt: string; updatedAt?: string; }
 
 type ViewMode = 'home' | 'tickets' | 'chat' | 'new';
+
+// Normalize a server timestamp to epoch ms; invalid/missing → NaN. Server-generated only.
+const toTs = (v?: string | number | null): number => {
+  if (v == null) return NaN;
+  const t = typeof v === 'number' ? v : new Date(v).getTime();
+  return Number.isFinite(t) ? t : NaN;
+};
+// True when `incoming` is strictly older than `current` (same ticket) and must be ignored.
+// Missing/invalid incoming updatedAt never overwrites a current with a valid one.
+const isStaleTicket = (incoming?: Ticket, current?: Ticket): boolean => {
+  if (!current) return false;
+  const inTs = toTs(incoming?.updatedAt);
+  const curTs = toTs(current.updatedAt);
+  if (Number.isFinite(inTs) && Number.isFinite(curTs)) return inTs < curTs;
+  if (!Number.isFinite(inTs) && Number.isFinite(curTs)) return true;
+  return false;
+};
 
 export default function HelpScreen() {
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
+  const appActive = useAppActive();
 
   const [view, setView] = useState<ViewMode>('home');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -58,74 +77,138 @@ export default function HelpScreen() {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Real-time updates
+  // Bumped whenever the local seen-marker changes, to recompute the derived unread count.
+  const [seenVer, setSeenVer] = useState(0);
+  const viewingRef = useRef<{ view: ViewMode; id?: string }>({ view: 'home' });
+  viewingRef.current = { view, id: activeTicket?._id };
+  const reconcileInFlight = useRef(false);
+  const sendInFlight = useRef(false);
+
+  // Single guarded reducer for BOTH socket events and API responses: monotonic by
+  // server `updatedAt`, keeps the active detail and the list card in sync, and inserts a
+  // brand-new ticket once. A strictly older same-ticket payload is ignored; equal
+  // timestamps re-apply the same authoritative full ticket (idempotent — full replace,
+  // never an append, so duplicate deliveries can't duplicate messages).
+  const applyIncomingTicket = useCallback((incoming?: Ticket | null) => {
+    if (!incoming?._id) return;
+    const id = incoming._id;
+    setTickets((prev) => {
+      const idx = prev.findIndex((x) => x._id === id);
+      if (idx === -1) return [incoming, ...prev];
+      if (isStaleTicket(incoming, prev[idx])) return prev;
+      const next = prev.slice();
+      next[idx] = incoming;
+      return next;
+    });
+    setActiveTicket((prev) => {
+      if (!prev || prev._id !== id) return prev;
+      if (isStaleTicket(incoming, prev)) return prev;
+      return incoming;
+    });
+  }, []);
+
+  // Real-time updates. The global badge is owned by the tabs layout; here we only keep
+  // the local list fresh and, if the user is actively viewing a ticket, mark it seen so
+  // it never lights up. No manual "re-arm" is needed — the timestamp marker handles it.
   useEffect(() => {
     if (!user?._id) return;
     const socket = connectSocket(user._id);
     if (!socket) return;
     const onUpdate = (payload: { ticket?: Ticket }) => {
-      if (!payload?.ticket) return;
-      const t = payload.ticket;
-      setTickets((prev) => prev.map((x) => x._id === t._id ? t : x));
-      setActiveTicket((prev) => prev?._id === t._id ? t : prev);
-      // If new admin message arrives and user is NOT currently viewing this ticket, mark unseen
-      const last = t.chatHistory?.[t.chatHistory.length - 1];
-      if (last && last.sender !== 'user') {
-        setSeenTickets((prev) => {
-          const next = new Set(prev);
-          if (activeTicket?._id !== t._id) { next.delete(t._id); clearTicketSeen(t._id); }
-          return next;
-        });
+      const t = payload?.ticket;
+      if (!t?._id) return;
+      applyIncomingTicket(t);
+      const v = viewingRef.current;
+      if (v.view === 'chat' && v.id === t._id) {
+        // User is reading this ticket → treat everything up to the newest message as seen.
+        const ts = lastAdminMsgTs(t) || Date.now();
+        markTicketSeen(t._id, ts);
+        badgeBus.clearTicketUnread(t._id);
+        setSeenVer((n) => n + 1);
       }
     };
     socket.on('help_ticket_updated', onUpdate);
     return () => { socket.off('help_ticket_updated', onUpdate); };
-  }, [user?._id]);
+  }, [user?._id, applyIncomingTicket]);
+
+  // Reconciliation fallback: refetch the open ticket, guarded by an in-flight ref and the
+  // 2.5s cooldown so entry/foreground/reconnect/interval bursts collapse into one request.
+  const reconcileActive = useCallback(async () => {
+    const v = viewingRef.current;
+    if (v.view !== 'chat' || !v.id || reconcileInFlight.current) return;
+    reconcileInFlight.current = true;
+    try {
+      const res = await api.get(`/customer/help-tickets/${v.id}`);
+      if (res.data?.ticket) applyIncomingTicket(res.data.ticket);
+    } catch { /* ignore transient errors */ } finally { reconcileInFlight.current = false; }
+  }, [applyIncomingTicket]);
+
+  const { syncNow } = useSyncGuard(reconcileActive);
+
+  // 75s fallback — only while the chat is open AND the app is in the foreground. A
+  // backgrounded app clears the interval → zero fallback requests.
+  useEffect(() => {
+    if (view !== 'chat' || !activeTicket?._id || !appActive) return;
+    const poll = setInterval(syncNow, 75000);
+    return () => clearInterval(poll);
+  }, [view, activeTicket?._id, appActive, syncNow]);
+
+  // One guarded reconcile on foreground / socket reconnect, only while a chat is open.
+  useForegroundSync(() => { const v = viewingRef.current; if (v.view === 'chat' && v.id) syncNow(); });
+  useSocketReconnectSync(() => { const v = viewingRef.current; if (v.view === 'chat' && v.id) syncNow(); });
 
   const fetchTickets = async () => {
     setLoadingTickets(true);
     try {
       const res = await api.get('/customer/help-tickets');
-      setTickets(res.data.tickets || []);
+      const list = res.data.tickets || [];
+      setTickets(list);
+      // A full list fetch is authoritative — reconcile the shared badge Set from it.
+      await getTicketSeenMap();
+      badgeBus.reconcileTickets(unreadTicketIds(list, peekTicketSeenMap()));
     } catch { /* */ } finally { setLoadingTickets(false); }
   };
 
   const fetchTicketDetail = async (id: string) => {
     try {
       const res = await api.get(`/customer/help-tickets/${id}`);
-      setActiveTicket(res.data.ticket);
+      if (res.data?.ticket) applyIncomingTicket(res.data.ticket);
     } catch { Alert.alert('Error', 'Could not load ticket'); }
   };
 
-  // Track which tickets user has "seen" (read the latest messages)
-  const [seenTickets, setSeenTickets] = useState<Set<string>>(new Set());
+  // Load the seen markers once so the derived count is correct on first render.
+  useEffect(() => { getTicketSeenMap().then(() => setSeenVer((n) => n + 1)); }, []);
 
-  useEffect(() => { getSeenTickets().then(setSeenTickets); }, []);
-
-  // Keep the shared support-badge (Profile tab) in sync as tickets are seen/updated,
-  // so opening a ticket clears the badge instantly instead of on the next poll.
-  useEffect(() => {
-    badgeBus.setSupport(countUnreadTickets(tickets, seenTickets));
-  }, [tickets, seenTickets]);
+  // Unread count for the "My Tickets" card — derived from the current list + seen markers.
+  const unreadIds = useMemo(
+    () => unreadTicketIds(tickets, peekTicketSeenMap()),
+    // seenVer forces recompute when markers change (open/mark-seen).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tickets, seenVer],
+  );
 
   const openTicket = (t: Ticket) => {
     setActiveTicket(t);
     setView('chat');
     fetchTicketDetail(t._id);
-    // Mark as seen locally — badge will disappear
-    markTicketSeen(t._id);
-    setSeenTickets((prev) => new Set(prev).add(t._id));
+    // Mark seen up to the newest message → badge clears immediately (local + shared).
+    markTicketSeen(t._id, lastAdminMsgTs(t) || Date.now());
+    badgeBus.clearTicketUnread(t._id);
+    setSeenVer((n) => n + 1);
   };
 
   const sendMessage = async () => {
-    if (!chatMsg.trim() || !activeTicket) return;
+    const text = chatMsg.trim();
+    // Synchronous in-flight ref blocks a second submit before React updates sendingMsg.
+    if (!text || !activeTicket || sendInFlight.current) return;
+    sendInFlight.current = true;
     setSendingMsg(true);
     try {
-      const res = await api.post(`/customer/help-tickets/${activeTicket._id}/message`, { message: chatMsg.trim() });
-      setActiveTicket(res.data.ticket);
+      const res = await api.post(`/customer/help-tickets/${activeTicket._id}/message`, { message: text });
+      if (res.data?.ticket) applyIncomingTicket(res.data.ticket);
       setChatMsg('');
       setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 200);
-    } catch (e) { Alert.alert('Failed', getApiError(e, 'Could not send')); } finally { setSendingMsg(false); }
+    } catch (e) { Alert.alert('Failed', getApiError(e, 'Could not send')); } finally { sendInFlight.current = false; setSendingMsg(false); }
   };
 
   const submitNewTicket = async () => {
@@ -156,7 +239,10 @@ export default function HelpScreen() {
             <Text style={{ fontSize: 11, color: statusColor(activeTicket.status), fontWeight: '700', textTransform: 'capitalize' }}>{activeTicket.status}</Text>
           </View>
         </View>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+        {/* Android uses softwareKeyboardLayoutMode:"pan" (app.json) — the OS already pans the
+            focused input above the keyboard, so a "height" behavior double-lifts it (input
+            jumps too high until a re-render settles it). Leave Android to native pan. */}
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
           <FlatList
             ref={chatListRef}
             data={activeTicket.chatHistory || []}
@@ -269,8 +355,8 @@ export default function HelpScreen() {
             <View style={[styles.actionIcon, { backgroundColor: '#dbeafe' }]}><Ionicons name="chatbubbles" size={22} color="#2563eb" /></View>
             <Text style={styles.actionLabel}>My Tickets</Text>
             <Text style={styles.actionSub}>View & chat on tickets</Text>
-            {tickets.filter((t) => { if (seenTickets.has(t._id)) return false; const last = t.chatHistory?.[t.chatHistory.length - 1]; return t.status !== 'resolved' && last && last.sender !== 'user'; }).length > 0 && (
-              <View style={styles.actionBadge}><Text style={styles.actionBadgeT}>{tickets.filter((t) => { if (seenTickets.has(t._id)) return false; const last = t.chatHistory?.[t.chatHistory.length - 1]; return t.status !== 'resolved' && last && last.sender !== 'user'; }).length}</Text></View>
+            {unreadIds.length > 0 && (
+              <View style={styles.actionBadge}><Text style={styles.actionBadgeT}>{unreadIds.length}</Text></View>
             )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionCard} onPress={() => setView('new')}>

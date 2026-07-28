@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { logout } from '@/store/authSlice';
 import { Brand } from '@/lib/config';
+import { cldPreset } from '@/lib/cldUrl';
+import { useNotifsUnread, useSupportUnread } from '@/lib/badgeBus';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -15,6 +17,8 @@ export default function ProfileScreen() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
+  const notifsUnread = useNotifsUnread();
+  const supportUnread = useSupportUnread();
 
   const confirmLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -23,8 +27,8 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const MenuRow = ({ icon, label, onPress, danger, color, last }: {
-    icon: IoniconName; label: string; onPress: () => void; danger?: boolean; color?: string; last?: boolean;
+  const MenuRow = ({ icon, label, onPress, danger, color, last, badge }: {
+    icon: IoniconName; label: string; onPress: () => void; danger?: boolean; color?: string; last?: boolean; badge?: number;
   }) => (
     <>
       <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
@@ -32,6 +36,9 @@ export default function ProfileScreen() {
           <Ionicons name={icon} size={20} color={danger ? Brand.danger : (color || Brand.navy)} />
         </View>
         <Text style={[styles.rowLabel, danger && { color: Brand.danger }]}>{label}</Text>
+        {badge && badge > 0 ? (
+          <View style={styles.rowBadge}><Text style={styles.rowBadgeT}>{badge > 99 ? '99+' : badge}</Text></View>
+        ) : null}
         {!danger && <Ionicons name="chevron-forward" size={18} color={Brand.textLight} />}
       </TouchableOpacity>
       {!last && <View style={styles.divider} />}
@@ -48,7 +55,7 @@ export default function ProfileScreen() {
             <View style={styles.profileRow}>
               <View style={styles.avatar}>
                 {user?.profileImage ? (
-                  <Image source={{ uri: user.profileImage }} style={styles.avatarImg} />
+                  <Image source={{ uri: cldPreset.avatar(user.profileImage, 160) }} style={styles.avatarImg} />
                 ) : (
                   <Text style={styles.avatarText}>{(user?.fullName || 'U').charAt(0).toUpperCase()}</Text>
                 )}
@@ -103,8 +110,8 @@ export default function ProfileScreen() {
         {/* Support */}
         <Text style={styles.sectionLabel}>Support</Text>
         <View style={styles.menuCard}>
-          <MenuRow icon="notifications-outline" label="Notifications" color="#0ea5e9" onPress={() => router.push('/notifications')} />
-          <MenuRow icon="help-circle-outline" label="Help & Support" color={Brand.success} onPress={() => router.push('/help')} />
+          <MenuRow icon="notifications-outline" label="Notifications" color="#0ea5e9" badge={notifsUnread} onPress={() => router.push('/notifications')} />
+          <MenuRow icon="help-circle-outline" label="Help & Support" color={Brand.success} badge={supportUnread} onPress={() => router.push('/help')} />
           <MenuRow icon="shield-checkmark-outline" label="Privacy Policy" color="#6366f1" onPress={() => router.push({ pathname: '/legal', params: { type: 'privacy' } })} />
           <MenuRow icon="document-text-outline" label="Terms of Service" color="#6366f1" onPress={() => router.push({ pathname: '/legal', params: { type: 'terms' } })} />
           <MenuRow icon="information-circle-outline" label="About Fixo" color={Brand.textMuted}
@@ -147,6 +154,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
   rowIcon: { height: 40, width: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   rowLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: Brand.text },
+  rowBadge: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: Brand.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, marginRight: 8 },
+  rowBadgeT: { color: '#fff', fontSize: 10.5, fontWeight: '800' },
   divider: { height: 1, backgroundColor: Brand.border, marginLeft: 70 },
   version: { textAlign: 'center', color: Brand.textLight, fontSize: 12, marginTop: 24 },
 });

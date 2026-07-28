@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,8 +8,9 @@ import { Brand } from '@/lib/config';
 import { useAppSelector } from '@/store/hooks';
 import api from '@/lib/api';
 import { connectSocket, getSocket } from '@/lib/socket';
-import { getSeenTickets, countUnreadTickets } from '@/lib/ticketSeen';
+import { getTicketSeenMap, unreadTicketIds, isTicketUnread, peekTicketSeenMap, type TicketLike } from '@/lib/ticketSeen';
 import { badgeBus, useProfileBadge } from '@/lib/badgeBus';
+import { useAppActive, useForegroundSync, useSocketReconnectSync, usePollOwner, useSyncGuard } from '@/lib/appLifecycle';
 
 function BadgeIcon({ name, color, size, badge }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number; badge?: number }) {
   return (
@@ -28,34 +29,71 @@ export default function TabsLayout() {
   const { user } = useAppSelector((s) => s.auth);
   const insets = useSafeAreaInsets();
   const profileBadge = useProfileBadge();
+  const appActive = useAppActive();
 
+  // Single in-flight guard so overlapping badge fetches never stack.
+  const fetchInFlight = useRef(false);
+  const fetchCounts = useCallback(async () => {
+    if (!user?._id || fetchInFlight.current) return;
+    fetchInFlight.current = true;
+    try {
+      const [notifRes, ticketRes, seen] = await Promise.all([
+        api.get('/customer/notifications').catch(() => ({ data: { notifications: [] } })),
+        api.get('/customer/help-tickets').catch(() => ({ data: { tickets: [] } })),
+        getTicketSeenMap(),
+      ]);
+      const notifs = notifRes.data?.notifications || [];
+      badgeBus.setNotifs(notifs.filter((n: any) => !n.isRead).length);
+      const tickets = ticketRes.data?.tickets || [];
+      badgeBus.reconcileTickets(unreadTicketIds(tickets, seen));
+    } catch { /* keep last good counts */ } finally {
+      fetchInFlight.current = false;
+    }
+  }, [user?._id]);
+
+  // runNow = immediate (startup); syncNow = cooldown-guarded so a foreground + reconnect
+  // that fire close together collapse into a single badge fetch.
+  const { runNow, syncNow } = useSyncGuard(fetchCounts);
+
+  // Startup fetch + event-driven badge updates (socket is the primary channel).
   useEffect(() => {
     if (!user?._id) return;
-    const fetchCounts = async () => {
-      try {
-        const [notifRes, ticketRes, seen] = await Promise.all([
-          api.get('/customer/notifications').catch(() => ({ data: { notifications: [] } })),
-          api.get('/customer/help-tickets').catch(() => ({ data: { tickets: [] } })),
-          getSeenTickets(),
-        ]);
-        const notifs = notifRes.data?.notifications || [];
-        badgeBus.setNotifs(notifs.filter((n: any) => !n.isRead).length);
-        const tickets = ticketRes.data?.tickets || [];
-        badgeBus.setSupport(countUnreadTickets(tickets, seen));
-      } catch { /* */ }
-    };
-    fetchCounts();
-    const interval = setInterval(fetchCounts, 15000);
-
+    runNow();
     connectSocket(user._id);
     const socket = getSocket();
-    if (!socket) { clearInterval(interval); return; }
-    const onNotif = () => { badgeBus.incNotifs(); };
-    const onTicket = () => { badgeBus.incSupport(); };
-    socket.on('notification_event', onNotif);
-    socket.on('help_ticket_updated', onTicket);
-    return () => { clearInterval(interval); socket.off('notification_event', onNotif); socket.off('help_ticket_updated', onTicket); };
-  }, [user?._id]);
+    if (!socket) return;
+
+    // Authoritative unread-notification count pushed by the server.
+    const onNotifCount = (payload: { count?: number }) => {
+      badgeBus.setNotifs(Number(payload?.count) || 0);
+    };
+    // A ticket changed → recompute just that ticket's unread state against the local
+    // last-seen marker and add/remove it from the Set (idempotent).
+    const onTicketUpdated = (payload: { ticket?: TicketLike }) => {
+      const ticket = payload?.ticket;
+      if (!ticket?._id) return;
+      // Synchronous marker read so a "mark seen" firing on the same event settles cleanly.
+      badgeBus.applyTicketUnread(ticket._id, isTicketUnread(ticket, peekTicketSeenMap()));
+    };
+    socket.on('badge:notif-count', onNotifCount);
+    socket.on('help_ticket_updated', onTicketUpdated);
+    return () => {
+      socket.off('badge:notif-count', onNotifCount);
+      socket.off('help_ticket_updated', onTicketUpdated);
+    };
+  }, [user?._id, runNow]);
+
+  // Slow 3-minute fallback poll — only while the app is in the foreground.
+  useEffect(() => {
+    if (!user?._id || !appActive) return;
+    const interval = setInterval(syncNow, 180000);
+    return () => clearInterval(interval);
+  }, [user?._id, appActive, syncNow]);
+
+  // One immediate resync when the app returns to foreground or the socket reconnects.
+  useForegroundSync(syncNow);
+  useSocketReconnectSync(syncNow);
+  usePollOwner('customer-badges', !!user?._id && appActive);
 
   return (
     <Tabs

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api, { getApiError } from '@/lib/api';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setUser } from '@/store/authSlice';
+import { cldPreset } from '@/lib/cldUrl';
 import { Brand } from '@/lib/config';
 
 export default function EditProfileScreen() {
@@ -78,7 +79,7 @@ export default function EditProfileScreen() {
           <View style={styles.avatarCard}>
             <TouchableOpacity style={styles.avatarWrap} onPress={pickPhoto} activeOpacity={0.8}>
               {avatar ? (
-                <Image source={{ uri: avatar }} style={styles.avatarImg} />
+                <Image source={{ uri: cldPreset.avatar(avatar, 240) }} style={styles.avatarImg} />
               ) : (
                 <Text style={styles.avatarText}>{(user?.fullName || 'U').charAt(0).toUpperCase()}</Text>
               )}

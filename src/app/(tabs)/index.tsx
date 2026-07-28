@@ -14,6 +14,7 @@ import LocationHeader from '@/components/LocationHeader';
 import ActiveBookingsHome from '@/components/ActiveBookingsHome';
 import HomeStory from '@/components/HomeStory';
 import { badgeBus, useNotifsUnread } from '@/lib/badgeBus';
+import { cldPreset } from '@/lib/cldUrl';
 
 interface Category {
   _id: string;
@@ -173,7 +174,7 @@ export default function HomeScreen() {
                     below it, so text contrast never depends on how bright the photo is. */}
                 <View style={styles.catImgWrap}>
                   {cat.image ? (
-                    <Image source={{ uri: cat.image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+                    <Image source={{ uri: cldPreset.category(cat.image) }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
                   ) : (
                     <View style={[StyleSheet.absoluteFill, styles.catFallback]}>
                       <Ionicons name="construct" size={38} color={Brand.orange} />

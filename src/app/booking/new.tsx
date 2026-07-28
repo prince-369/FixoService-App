@@ -3,7 +3,7 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -65,6 +65,7 @@ const categoryIcon = (name?: string): keyof typeof Ionicons.glyphMap => {
 export default function NewBookingScreen() {
   const { category, name } = useLocalSearchParams<{ category: string; name?: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
@@ -269,6 +270,15 @@ export default function NewBookingScreen() {
     if (!description.trim()) return Alert.alert('Required', 'Please describe the work needed.');
     if (!coords) return Alert.alert('Location needed', 'Tap "Use my current location" to set where the service is needed.');
     if (!address.trim()) return Alert.alert('Address needed', 'Please add an address.');
+    // Block booking when no worker is available/online for this location.
+    if (availability && availability.active === 0) {
+      return Alert.alert(
+        'No worker available',
+        availability.total > 0
+          ? 'No worker is online near this location right now. Please try again in a little while.'
+          : "Fixo isn't available at this location yet. Tap “Notify me” and we'll reach out when workers arrive.",
+      );
+    }
 
     let scheduledISO: string | undefined;
     if (scheduleMode === 'scheduled') {
@@ -310,6 +320,9 @@ export default function NewBookingScreen() {
       setSubmitting(false);
     }
   };
+
+  // No worker online for this location → block booking (only once we've confirmed it).
+  const noActiveWorkers = !!availability && availability.active === 0;
 
   return (
     <View style={styles.root}>
@@ -428,7 +441,7 @@ export default function NewBookingScreen() {
 
                 {loadingAvail && !availability ? (
                   <Text style={styles.availLoading}>Checking nearby workers…</Text>
-                ) : availability && availability.total > 0 ? (
+                ) : availability && availability.active > 0 ? (
                   <>
                     <View style={styles.availChips}>
                       <View style={[styles.chip, styles.chipTotal]}><Text style={styles.chipTotalText}>Total: {availability.total}</Text></View>
@@ -439,6 +452,12 @@ export default function NewBookingScreen() {
                       Live counts within ~{Math.round(availability.radiusMeters / 1000)} km. Updates automatically as workers go online/offline.
                     </Text>
                   </>
+                ) : availability && availability.total > 0 ? (
+                  // Workers serve this area but none are online right now.
+                  <View style={{ gap: 6 }}>
+                    <Text style={styles.availEmptyTitle}>No worker is online near you right now</Text>
+                    <Text style={styles.availHint}>All nearby workers are currently offline. Please try again in a little while — you can&apos;t book until someone is available.</Text>
+                  </View>
                 ) : availability && availability.total === 0 ? (
                   <View style={{ gap: 8 }}>
                     <Text style={styles.availEmptyTitle}>Fixo isn&apos;t available here yet — but we&apos;re coming soon!</Text>
@@ -528,16 +547,23 @@ export default function NewBookingScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <SafeAreaView edges={['bottom']} style={styles.footer}>
-        <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={submit} disabled={submitting} activeOpacity={0.9}>
+      {/* Safe-area inset PLUS breathing room so the CTA always clears the home indicator /
+          gesture bar on every device (SafeAreaView edges under-applied it on Android). */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <TouchableOpacity
+          style={[styles.submitBtn, (submitting || noActiveWorkers) && { opacity: 0.5 }]}
+          onPress={submit}
+          disabled={submitting || noActiveWorkers}
+          activeOpacity={0.9}
+        >
           {submitting ? <ActivityIndicator color={Brand.white} /> : (
             <>
-              <Ionicons name="checkmark-circle" size={20} color={Brand.white} />
-              <Text style={styles.submitText}>Create Booking</Text>
+              <Ionicons name={noActiveWorkers ? 'time-outline' : 'checkmark-circle'} size={20} color={Brand.white} />
+              <Text style={styles.submitText}>{noActiveWorkers ? 'No worker available yet' : 'Create Booking'}</Text>
             </>
           )}
         </TouchableOpacity>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }

@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { refreshMe, logout } from '@/store/authSlice';
 import { Brand } from '@/lib/config';
+import { useAppActive } from '@/lib/appLifecycle';
 
 const fmt = (ms: number): string => {
   if (ms <= 0) return '00:00:00';
@@ -23,6 +24,7 @@ export default function BlockedScreen() {
   const dispatch = useAppDispatch();
   const { block } = useAppSelector((s) => s.auth);
 
+  const appActive = useAppActive();
   const until = block?.blockedUntil ? new Date(block.blockedUntil).getTime() : 0;
   const [remaining, setRemaining] = useState(until ? Math.max(0, until - Date.now()) : 0);
   const [checking, setChecking] = useState(false);
@@ -39,10 +41,12 @@ export default function BlockedScreen() {
   }, [until, dispatch]);
 
   // Periodic re-check in case admin unblocks early (socket also handles this).
+  // Paused while the app is backgrounded.
   useEffect(() => {
+    if (!appActive) return;
     const t = setInterval(() => dispatch(refreshMe()), 30000);
     return () => clearInterval(t);
-  }, [dispatch]);
+  }, [dispatch, appActive]);
 
   const checkNow = async () => { setChecking(true); await dispatch(refreshMe()); setChecking(false); };
 
