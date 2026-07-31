@@ -4,7 +4,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Brand } from '@/lib/config';
+import { useTheme } from '@/lib/theme';
 import { useAppSelector } from '@/store/hooks';
 import api from '@/lib/api';
 import { connectSocket, getSocket } from '@/lib/socket';
@@ -12,12 +12,12 @@ import { getTicketSeenMap, unreadTicketIds, isTicketUnread, peekTicketSeenMap, t
 import { badgeBus, useProfileBadge } from '@/lib/badgeBus';
 import { useAppActive, useForegroundSync, useSocketReconnectSync, usePollOwner, useSyncGuard } from '@/lib/appLifecycle';
 
-function BadgeIcon({ name, color, size, badge }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number; badge?: number }) {
+function BadgeIcon({ name, color, size, badge, badgeColor }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number; badge?: number; badgeColor: string }) {
   return (
     <View style={{ width: size + 10, height: size + 4, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={name} size={size} color={color} />
       {badge && badge > 0 ? (
-        <View style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Brand.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+        <View style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: badgeColor, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
           <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{badge > 99 ? '99+' : badge}</Text>
         </View>
       ) : null}
@@ -27,6 +27,7 @@ function BadgeIcon({ name, color, size, badge }: { name: keyof typeof Ionicons.g
 
 export default function TabsLayout() {
   const { user } = useAppSelector((s) => s.auth);
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const profileBadge = useProfileBadge();
   const appActive = useAppActive();
@@ -99,15 +100,16 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Brand.navy,
-        tabBarInactiveTintColor: Brand.textLight,
+        tabBarActiveTintColor: colors.orange,
+        tabBarInactiveTintColor: colors.textLight,
         tabBarStyle: {
-          borderTopColor: Brand.border,
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
           height: 60 + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
           paddingTop: 6,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
       }}
     >
       <Tabs.Screen
@@ -125,19 +127,23 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="rewards"
+        name="wallet"
         options={{
-          title: 'Rewards',
-          tabBarIcon: ({ color, size }) => <Ionicons name="gift" size={size} color={color} />,
+          title: 'Wallet',
+          tabBarIcon: ({ color, size }) => <Ionicons name="wallet" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <BadgeIcon name="person" color={color} size={size} badge={profileBadge} />,
+          tabBarIcon: ({ color, size }) => (
+            <BadgeIcon name="person" color={color} size={size} badge={profileBadge} badgeColor={colors.danger} />
+          ),
         }}
       />
+      {/* Rewards keeps its route (drawer + deep links) but leaves the four-slot bottom bar. */}
+      <Tabs.Screen name="rewards" options={{ href: null }} />
     </Tabs>
   );
 }

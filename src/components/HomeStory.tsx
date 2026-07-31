@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { LayoutAnimation, Linking, Platform, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Brand } from '@/lib/config';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 /**
  * Everything below the service grid on the customer home: how Fixo works, how to
@@ -55,6 +55,8 @@ const FAQS: { q: string; a: string }[] = [
 const PROMPTS = ['What is broken?', 'Which room?', 'Since when?', 'Brand or model', 'When do you need it?'];
 
 function Head({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={s.head}>
       <Text style={s.eyebrow}>{eyebrow.toUpperCase()}</Text>
@@ -65,6 +67,8 @@ function Head({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: s
 }
 
 function Faq({ q, a }: { q: string; a: string }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
   return (
     <View style={s.faq}>
@@ -77,7 +81,7 @@ function Faq({ q, a }: { q: string; a: string }) {
         }}
       >
         <Text style={s.faqQ}>{q}</Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={17} color={Brand.orange} />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={17} color={colors.orange} />
       </TouchableOpacity>
       {open ? <Text style={s.faqA}>{a}</Text> : null}
     </View>
@@ -85,6 +89,8 @@ function Faq({ q, a }: { q: string; a: string }) {
 }
 
 export default function HomeStory() {
+  const { colors } = useTheme();
+  const s = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={s.root}>
       {/* ── How it works ── */}
@@ -113,8 +119,8 @@ export default function HomeStory() {
       />
       <View style={[s.card, s.cardBad]}>
         <View style={[s.tag, s.tagBad]}>
-          <Ionicons name="close-circle" size={12} color="#b91c1c" />
-          <Text style={[s.tagT, { color: '#b91c1c' }]}>TOO VAGUE</Text>
+          <Ionicons name="close-circle" size={12} color={colors.danger} />
+          <Text style={[s.tagT, { color: colors.danger }]}>TOO VAGUE</Text>
         </View>
         <Text style={s.quote}>“Tap kharab hai”</Text>
         <Text style={s.cardD}>
@@ -124,8 +130,8 @@ export default function HomeStory() {
       </View>
       <View style={[s.card, s.cardGood]}>
         <View style={[s.tag, s.tagGood]}>
-          <Ionicons name="checkmark-circle" size={12} color="#047857" />
-          <Text style={[s.tagT, { color: '#047857' }]}>GETS REAL BIDS</Text>
+          <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+          <Text style={[s.tagT, { color: colors.success }]}>GETS REAL BIDS</Text>
         </View>
         <Text style={s.quote}>
           “Kitchen tap leaking from the base since 2 days. Steel tap, 2nd floor. Need it fixed today evening.”
@@ -139,8 +145,8 @@ export default function HomeStory() {
           <View key={p} style={s.chip}><Text style={s.chipT}>{p}</Text></View>
         ))}
         <View style={[s.chip, s.chipAccent]}>
-          <Ionicons name="mic" size={11} color={Brand.orange} />
-          <Text style={[s.chipT, { color: Brand.orange, fontWeight: '800' }]}>Or record a voice note</Text>
+          <Ionicons name="mic" size={11} color={colors.orange} />
+          <Text style={[s.chipT, { color: colors.orange, fontWeight: '800' }]}>Or record a voice note</Text>
         </View>
       </View>
 
@@ -152,7 +158,7 @@ export default function HomeStory() {
         <View style={s.list}>
           {FOR_CUSTOMER.map((it) => (
             <View key={it.t} style={s.listRow}>
-              <Ionicons name={it.icon} size={18} color={Brand.success} style={s.listIcon} />
+              <Ionicons name={it.icon} size={18} color={colors.success} style={s.listIcon} />
               <View style={s.flex1}>
                 <Text style={s.listT}>{it.t}</Text>
                 <Text style={s.listD}>{it.d}</Text>
@@ -163,8 +169,8 @@ export default function HomeStory() {
       </View>
 
       {/* ── Why Fixo — professionals ── */}
-      <LinearGradient colors={[Brand.navy, '#1b2c56']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.card, s.cardPro]}>
-        <Text style={[s.cardH, { color: Brand.white }]}>For professionals</Text>
+      <LinearGradient colors={[colors.navy, colors.navyLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.card, s.cardPro]}>
+        <Text style={[s.cardH, { color: colors.white }]}>For professionals</Text>
         <Text style={[s.cardSub, { color: 'rgba(255,255,255,0.72)' }]}>
           Bring your skill. We’ll bring the customers — and you decide what the work is worth.
         </Text>
@@ -173,7 +179,7 @@ export default function HomeStory() {
             <View key={it.t} style={s.listRow}>
               <Ionicons name={it.icon} size={18} color="#34d399" style={s.listIcon} />
               <View style={s.flex1}>
-                <Text style={[s.listT, { color: Brand.white }]}>{it.t}</Text>
+                <Text style={[s.listT, { color: colors.white }]}>{it.t}</Text>
                 <Text style={[s.listD, { color: 'rgba(255,255,255,0.68)' }]}>{it.d}</Text>
               </View>
             </View>
@@ -185,7 +191,7 @@ export default function HomeStory() {
           onPress={() => Linking.openURL('https://fixoworker.vercel.app')}
         >
           <Text style={s.proBtnT}>Join as a professional</Text>
-          <Ionicons name="arrow-forward" size={14} color={Brand.navy} />
+          <Ionicons name="arrow-forward" size={14} color={colors.navy} />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -206,7 +212,7 @@ export default function HomeStory() {
       </View>
 
       {/* ── Closing note ── */}
-      <LinearGradient colors={[Brand.navy, '#1b2c56']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.cta}>
+      <LinearGradient colors={[colors.navy, colors.navyLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.cta}>
         <Text style={s.ctaH}>Something broken at home?</Text>
         <Text style={s.ctaP}>Describe it in one line. Get real bids from verified pros in your area.</Text>
       </LinearGradient>
@@ -214,61 +220,62 @@ export default function HomeStory() {
   );
 }
 
-const s = StyleSheet.create({
-  root: { marginTop: 30, paddingBottom: 8 },
-  flex1: { flex: 1 },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    root: { marginTop: 30, paddingBottom: 8 },
+    flex1: { flex: 1 },
 
-  head: { marginTop: 28, marginBottom: 14 },
-  eyebrow: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.4, color: Brand.textLight },
-  h2: { marginTop: 6, fontSize: 21, fontWeight: '800', color: Brand.text, letterSpacing: -0.4, lineHeight: 27 },
-  sub: { marginTop: 7, fontSize: 13.5, lineHeight: 20, color: Brand.textMuted },
+    head: { marginTop: 28, marginBottom: 14 },
+    eyebrow: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.4, color: c.textLight },
+    h2: { marginTop: 6, fontSize: 21, fontWeight: '800', color: c.text, letterSpacing: -0.4, lineHeight: 27 },
+    sub: { marginTop: 7, fontSize: 13.5, lineHeight: 20, color: c.textMuted },
 
-  stack: { gap: 10 },
+    stack: { gap: 10 },
 
-  step: { flexDirection: 'row', gap: 14, backgroundColor: Brand.card, borderRadius: 16, borderWidth: 1, borderColor: Brand.border, padding: 16 },
-  stepNum: { fontSize: 13, fontWeight: '800', color: Brand.orange, letterSpacing: 0.5, marginTop: 1 },
-  stepT: { fontSize: 15, fontWeight: '800', color: Brand.text },
-  stepD: { marginTop: 4, fontSize: 13, lineHeight: 19, color: Brand.textMuted },
+    step: { flexDirection: 'row', gap: 14, backgroundColor: c.card, borderRadius: 16, borderWidth: 1, borderColor: c.border, padding: 16 },
+    stepNum: { fontSize: 13, fontWeight: '800', color: c.orange, letterSpacing: 0.5, marginTop: 1 },
+    stepT: { fontSize: 15, fontWeight: '800', color: c.text },
+    stepD: { marginTop: 4, fontSize: 13, lineHeight: 19, color: c.textMuted },
 
-  card: { backgroundColor: Brand.card, borderRadius: 18, borderWidth: 1, borderColor: Brand.border, padding: 18, marginBottom: 12 },
-  cardBad: { borderColor: '#fecaca' },
-  cardGood: { borderColor: '#a7f3d0' },
-  cardPro: { borderColor: 'transparent' },
-  cardH: { fontSize: 19, fontWeight: '800', color: Brand.text },
-  cardSub: { marginTop: 6, fontSize: 13.5, lineHeight: 20, color: Brand.textMuted },
-  cardD: { marginTop: 12, fontSize: 13, lineHeight: 19.5, color: Brand.textMuted },
+    card: { backgroundColor: c.card, borderRadius: 18, borderWidth: 1, borderColor: c.border, padding: 18, marginBottom: 12 },
+    cardBad: { borderColor: c.danger },
+    cardGood: { borderColor: c.success },
+    cardPro: { borderColor: 'transparent' },
+    cardH: { fontSize: 19, fontWeight: '800', color: c.text },
+    cardSub: { marginTop: 6, fontSize: 13.5, lineHeight: 20, color: c.textMuted },
+    cardD: { marginTop: 12, fontSize: 13, lineHeight: 19.5, color: c.textMuted },
 
-  tag: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  tagBad: { backgroundColor: '#fee2e2' },
-  tagGood: { backgroundColor: '#d1fae5' },
-  tagT: { fontSize: 9.5, fontWeight: '900', letterSpacing: 0.9 },
-  quote: { marginTop: 12, backgroundColor: Brand.bg, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 22, fontWeight: '600', color: Brand.text },
+    tag: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+    tagBad: { backgroundColor: c.dangerBg },
+    tagGood: { backgroundColor: c.successBg },
+    tagT: { fontSize: 9.5, fontWeight: '900', letterSpacing: 0.9 },
+    quote: { marginTop: 12, backgroundColor: c.bg, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, lineHeight: 22, fontWeight: '600', color: c.text },
 
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 2, marginBottom: 4 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
-  chipAccent: { borderColor: '#fed7aa', backgroundColor: '#fff7ed' },
-  chipT: { fontSize: 12, fontWeight: '700', color: Brand.textMuted },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 2, marginBottom: 4 },
+    chip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+    chipAccent: { borderColor: c.orange, backgroundColor: c.orange50 },
+    chipT: { fontSize: 12, fontWeight: '700', color: c.textMuted },
 
-  list: { marginTop: 16, gap: 14 },
-  listRow: { flexDirection: 'row', gap: 12 },
-  listIcon: { marginTop: 2 },
-  listT: { fontSize: 14, fontWeight: '800', color: Brand.text },
-  listD: { marginTop: 2, fontSize: 12.5, lineHeight: 18.5, color: Brand.textMuted },
+    list: { marginTop: 16, gap: 14 },
+    listRow: { flexDirection: 'row', gap: 12 },
+    listIcon: { marginTop: 2 },
+    listT: { fontSize: 14, fontWeight: '800', color: c.text },
+    listD: { marginTop: 2, fontSize: 12.5, lineHeight: 18.5, color: c.textMuted },
 
-  proBtn: { marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.white, borderRadius: 12, paddingVertical: 13 },
-  proBtnT: { fontSize: 13.5, fontWeight: '800', color: Brand.navy },
+    proBtn: { marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.white, borderRadius: 12, paddingVertical: 13 },
+    proBtnT: { fontSize: 13.5, fontWeight: '800', color: c.navy },
 
-  trustWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
-  trust: { flexGrow: 1, flexBasis: '46%', backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center' },
-  trustT: { fontSize: 13, fontWeight: '800', color: Brand.text, textAlign: 'center' },
-  trustD: { marginTop: 3, fontSize: 11, color: Brand.textLight, textAlign: 'center' },
+    trustWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+    trust: { flexGrow: 1, flexBasis: '46%', backgroundColor: c.card, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center' },
+    trustT: { fontSize: 13, fontWeight: '800', color: c.text, textAlign: 'center' },
+    trustD: { marginTop: 3, fontSize: 11, color: c.textLight, textAlign: 'center' },
 
-  faq: { backgroundColor: Brand.card, borderRadius: 14, borderWidth: 1, borderColor: Brand.border, paddingHorizontal: 16, overflow: 'hidden' },
-  faqQRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 15 },
-  faqQ: { flex: 1, fontSize: 13.5, fontWeight: '800', color: Brand.text, lineHeight: 19 },
-  faqA: { paddingBottom: 15, fontSize: 13, lineHeight: 19.5, color: Brand.textMuted },
+    faq: { backgroundColor: c.card, borderRadius: 14, borderWidth: 1, borderColor: c.border, paddingHorizontal: 16, overflow: 'hidden' },
+    faqQRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 15 },
+    faqQ: { flex: 1, fontSize: 13.5, fontWeight: '800', color: c.text, lineHeight: 19 },
+    faqA: { paddingBottom: 15, fontSize: 13, lineHeight: 19.5, color: c.textMuted },
 
-  cta: { marginTop: 28, borderRadius: 20, paddingVertical: 32, paddingHorizontal: 22, alignItems: 'center' },
-  ctaH: { fontSize: 20, fontWeight: '800', color: Brand.white, textAlign: 'center', letterSpacing: -0.3 },
-  ctaP: { marginTop: 9, fontSize: 13.5, lineHeight: 20, color: 'rgba(255,255,255,0.75)', textAlign: 'center' },
-});
+    cta: { marginTop: 28, borderRadius: 20, paddingVertical: 32, paddingHorizontal: 22, alignItems: 'center' },
+    ctaH: { fontSize: 20, fontWeight: '800', color: c.white, textAlign: 'center', letterSpacing: -0.3 },
+    ctaP: { marginTop: 9, fontSize: 13.5, lineHeight: 20, color: 'rgba(255,255,255,0.75)', textAlign: 'center' },
+  });

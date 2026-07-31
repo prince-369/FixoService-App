@@ -21,6 +21,7 @@ import { restoreSession, forceLogout, refreshMe } from '@/store/authSlice';
 import { setUnauthorizedHandler } from '@/lib/api';
 import { connectSocket, getSocket } from '@/lib/socket';
 import { Brand } from '@/lib/config';
+import { ThemeProvider, useTheme } from '@/lib/theme';
 import { LOGO } from '@/lib/assets';
 import LiveNotificationBanner from '@/components/LiveNotificationBanner';
 import { ToastProvider } from '@/components/Toast';
@@ -97,6 +98,12 @@ function RootNavigator() {
   );
 }
 
+/** Status bar icons have to follow the theme, so this sits inside the ThemeProvider. */
+function ThemedStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
+}
+
 export default function RootLayout() {
   // Brand typeface — Plus Jakarta Sans, applied app-wide (see globalFont).
   const [fontsLoaded] = useFonts({
@@ -121,11 +128,13 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <Provider store={store}>
-          <LocationProvider>
-            <StatusBar style="dark" />
-            <RootNavigator />
-            <ToastProvider />
-          </LocationProvider>
+          <ThemeProvider>
+            <LocationProvider>
+              <ThemedStatusBar />
+              <RootNavigator />
+              <ToastProvider />
+            </LocationProvider>
+          </ThemeProvider>
         </Provider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

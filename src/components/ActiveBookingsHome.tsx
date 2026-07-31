@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import api from '@/lib/api';
-import { Brand } from '@/lib/config';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 import { formatCurrency, statusOf } from '@/lib/format';
 import { useAppSelector } from '@/store/hooks';
 import { connectSocket, getSocket } from '@/lib/socket';
@@ -59,6 +59,8 @@ const formatSchedule = (iso?: string | null): string | null => {
 export default function ActiveBookingsHome() {
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<ActiveBooking[]>([]);
 
   const load = useCallback(async () => {
@@ -102,7 +104,7 @@ export default function ActiveBookingsHome() {
         {active.length > visible.length ? (
           <TouchableOpacity onPress={() => router.push('/(tabs)/bookings')} style={styles.viewAll}>
             <Text style={styles.viewAllT}>View all</Text>
-            <Ionicons name="chevron-forward" size={13} color={Brand.orange} />
+            <Ionicons name="chevron-forward" size={13} color={colors.orange} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -123,12 +125,12 @@ export default function ActiveBookingsHome() {
           return (
             <TouchableOpacity key={b._id} style={styles.card} activeOpacity={0.9} onPress={() => router.push(`/booking/${b._id}`)}>
               <View style={styles.cardTop}>
-                <View style={styles.catIcon}><Ionicons name={categoryIcon(b.category?.name)} size={20} color={Brand.orange} /></View>
+                <View style={styles.catIcon}><Ionicons name={categoryIcon(b.category?.name)} size={20} color={colors.orange} /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.catName} numberOfLines={1}>{b.category?.name || 'Service'}</Text>
                   <Text style={styles.desc} numberOfLines={1}>{b.workDescription}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={Brand.textLight} />
+                <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
               </View>
 
               <View style={styles.statusRow}>
@@ -137,7 +139,7 @@ export default function ActiveBookingsHome() {
                 </View>
                 {isLive ? (
                   <View style={styles.liveTag}>
-                    <Ionicons name="navigate" size={10} color={Brand.success} />
+                    <Ionicons name="navigate" size={10} color={colors.success} />
                     <Text style={styles.liveTagT}>Live</Text>
                   </View>
                 ) : null}
@@ -145,18 +147,18 @@ export default function ActiveBookingsHome() {
               <Text style={styles.hint} numberOfLines={1}>{hint}</Text>
 
               <View style={styles.track}>
-                <View style={[styles.trackFill, { width: `${percent}%`, backgroundColor: isLive ? Brand.success : Brand.orange }]} />
+                <View style={[styles.trackFill, { width: `${percent}%`, backgroundColor: isLive ? colors.success : colors.orange }]} />
               </View>
 
               <View style={styles.footer}>
                 {schedule ? (
                   <View style={styles.footItem}>
-                    <Ionicons name="calendar-clear-outline" size={12} color="#2563eb" />
+                    <Ionicons name="calendar-clear-outline" size={12} color={colors.text} />
                     <Text style={styles.schedT} numberOfLines={1}>{schedule}</Text>
                   </View>
                 ) : (
                   <View style={styles.footItem}>
-                    <Ionicons name="time-outline" size={12} color={Brand.textLight} />
+                    <Ionicons name="time-outline" size={12} color={colors.textLight} />
                     <Text style={styles.tapT}>Tap to track</Text>
                   </View>
                 )}
@@ -170,34 +172,36 @@ export default function ActiveBookingsHome() {
   );
 }
 
-const styles = StyleSheet.create({
-  section: { marginBottom: 16 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  headLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  livePulse: { height: 10, width: 10, borderRadius: 5, backgroundColor: '#a7f3d0', alignItems: 'center', justifyContent: 'center' },
-  livePulseDot: { height: 6, width: 6, borderRadius: 3, backgroundColor: Brand.success },
-  headTitle: { fontSize: 16, fontWeight: '800', color: Brand.text },
-  countPill: { backgroundColor: Brand.orange50, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 },
-  countPillT: { fontSize: 12, fontWeight: '800', color: Brand.orangeDark },
-  viewAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewAllT: { fontSize: 13, fontWeight: '800', color: Brand.orange },
-  scroll: { gap: 12, paddingRight: 4 },
-  card: { width: 268, backgroundColor: Brand.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  catIcon: { height: 42, width: 42, borderRadius: 12, backgroundColor: Brand.orange50, alignItems: 'center', justifyContent: 'center' },
-  catName: { fontSize: 14.5, fontWeight: '800', color: Brand.text },
-  desc: { fontSize: 12.5, color: Brand.textMuted, marginTop: 1 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
-  statusPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  statusPillT: { fontSize: 11, fontWeight: '800' },
-  liveTag: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Brand.successBg, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4 },
-  liveTagT: { fontSize: 10, fontWeight: '800', color: Brand.success, textTransform: 'uppercase' },
-  hint: { fontSize: 12, color: Brand.textMuted, marginTop: 8 },
-  track: { height: 6, borderRadius: 3, backgroundColor: Brand.bg, marginTop: 10, overflow: 'hidden' },
-  trackFill: { height: '100%', borderRadius: 3 },
-  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
-  footItem: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
-  schedT: { fontSize: 11, fontWeight: '700', color: '#2563eb', flex: 1 },
-  tapT: { fontSize: 11, fontWeight: '600', color: Brand.textLight },
-  amount: { fontSize: 14, fontWeight: '900', color: Brand.success },
-});
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    section: { marginBottom: 16 },
+    head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+    headLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    livePulse: { height: 10, width: 10, borderRadius: 5, backgroundColor: c.successBg, alignItems: 'center', justifyContent: 'center' },
+    livePulseDot: { height: 6, width: 6, borderRadius: 3, backgroundColor: c.success },
+    headTitle: { fontSize: 16, fontWeight: '800', color: c.text },
+    countPill: { backgroundColor: c.orange50, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 },
+    countPillT: { fontSize: 12, fontWeight: '800', color: c.orangeDark },
+    viewAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    viewAllT: { fontSize: 13, fontWeight: '800', color: c.orange },
+    scroll: { gap: 12, paddingRight: 4 },
+    card: { width: 268, backgroundColor: c.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: c.border, shadowColor: c.navy, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+    cardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    catIcon: { height: 42, width: 42, borderRadius: 12, backgroundColor: c.orange50, alignItems: 'center', justifyContent: 'center' },
+    catName: { fontSize: 14.5, fontWeight: '800', color: c.text },
+    desc: { fontSize: 12.5, color: c.textMuted, marginTop: 1 },
+    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
+    statusPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+    statusPillT: { fontSize: 11, fontWeight: '800' },
+    liveTag: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.successBg, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4 },
+    liveTagT: { fontSize: 10, fontWeight: '800', color: c.success, textTransform: 'uppercase' },
+    hint: { fontSize: 12, color: c.textMuted, marginTop: 8 },
+    track: { height: 6, borderRadius: 3, backgroundColor: c.bg, marginTop: 10, overflow: 'hidden' },
+    trackFill: { height: '100%', borderRadius: 3 },
+    footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+    footItem: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
+    // Was a light-mode-only blue; the palette has no blue, so the schedule reads as emphasised text.
+    schedT: { fontSize: 11, fontWeight: '700', color: c.text, flex: 1 },
+    tapT: { fontSize: 11, fontWeight: '600', color: c.textLight },
+    amount: { fontSize: 14, fontWeight: '900', color: c.success },
+  });

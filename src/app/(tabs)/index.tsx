@@ -1,18 +1,28 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAppSelector } from '@/store/hooks';
 import api from '@/lib/api';
-import { Brand } from '@/lib/config';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 import { LOGO } from '@/lib/assets';
+import { serviceIconFor } from '@/lib/serviceIcons';
 import LocationHeader from '@/components/LocationHeader';
 import ActiveBookingsHome from '@/components/ActiveBookingsHome';
 import HomeStory from '@/components/HomeStory';
+import AppDrawer from '@/components/AppDrawer';
 import { badgeBus, useNotifsUnread } from '@/lib/badgeBus';
 import { cldPreset } from '@/lib/cldUrl';
 
@@ -23,237 +33,332 @@ interface Category {
   priceStartsFrom?: number;
 }
 
+/** Seven category shortcuts plus a "More" tile fills two rows of four. */
+const SHORTCUT_COUNT = 7;
+const POPULAR_COUNT = 8;
+
+const SCREEN_W = Dimensions.get('window').width;
+const GUTTER = 16;
+// Four columns inside the gutters, with 12px between tiles.
+const TILE_W = (SCREEN_W - GUTTER * 2 - 12 * 3) / 4;
+const POPULAR_CARD_W = 148;
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [banners, setBanners] = useState<{ id: string; image: string; alt: string }[]>([]);
-  const bannerRef = useRef<FlatList>(null);
-  const [bannerIdx, setBannerIdx] = useState(0);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const unreadCount = useNotifsUnread();
-  const screenWidth = Dimensions.get('window').width - 32; // account for padding
 
   useEffect(() => {
     let active = true;
-    api.get('/customer/categories')
-      .then((res) => { if (active) setCategories(res.data.categories || res.data || []); })
+    api
+      .get('/customer/categories')
+      .then((res) => {
+        if (active) setCategories(res.data.categories || res.data || []);
+      })
       .catch(() => {})
       .finally(() => active && setLoading(false));
-    // Fetch banners from deployed web app
-    fetch('https://fixoservice.vercel.app/api/public-banners')
-      .then((r) => r.json())
-      .then((data) => { if (active && data?.banners) setBanners(data.banners); })
+
+    api
+      .get('/customer/notifications')
+      .then((res) => {
+        if (active) {
+          badgeBus.setNotifs((res.data?.notifications || []).filter((n: { isRead?: boolean }) => !n.isRead).length);
+        }
+      })
       .catch(() => {});
-    // Fetch unread notification count into the shared badge store
-    api.get('/customer/notifications')
-      .then((res) => { if (active) badgeBus.setNotifs((res.data?.notifications || []).filter((n: any) => !n.isRead).length); })
-      .catch(() => {});
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Auto-scroll banners
-  useEffect(() => {
-    if (banners.length <= 1) return;
-    const t = setInterval(() => {
-      setBannerIdx((prev) => {
-        const next = (prev + 1) % banners.length;
-        bannerRef.current?.scrollToIndex({ index: next, animated: true });
-        return next;
-      });
-    }, 4000);
-    return () => clearInterval(t);
-  }, [banners.length]);
+  const shortcuts = categories.slice(0, SHORTCUT_COUNT);
+  const popular = categories.slice(0, POPULAR_COUNT);
 
-  const filtered = search
-    ? categories.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
-    : categories;
+  const submitSearch = () => {
+    const trimmed = search.trim();
+    router.push({ pathname: '/service/all', params: trimmed ? { q: trimmed } : {} });
+  };
+
+  const openCategory = (cat: Category) =>
+    router.push({ pathname: '/service/[id]', params: { id: cat._id, name: cat.name } });
 
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.headerRow}>
-          <Image source={LOGO} style={styles.logoImg} contentFit="contain" />
-          <TouchableOpacity style={styles.bell} onPress={() => router.push('/notifications')}>
-            <Ionicons name="notifications-outline" size={22} color={Brand.white} />
-            {unreadCount > 0 ? (
-              <View style={styles.bellBadge}><Text style={styles.bellBadgeT}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>
-            ) : null}
+          <TouchableOpacity
+            onPress={() => setDrawerOpen(true)}
+            style={styles.headerBtn}
+            accessibilityLabel="Open menu"
+          >
+            <Ionicons name="menu" size={25} color={colors.text} />
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.greetRow}>
-          <View>
-            <Text style={styles.hi}>Hello, {user?.fullName?.split(' ')[0] || 'there'} 👋</Text>
-            <Text style={styles.name}>What do you need fixed?</Text>
+          <Image source={LOGO} style={styles.logo} contentFit="contain" />
+
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => router.push('/notifications')}
+              accessibilityLabel="Notifications"
+            >
+              <Ionicons name="notifications-outline" size={23} color={colors.text} />
+              {unreadCount > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => router.push('/edit-profile')} accessibilityLabel="Your profile">
+              {user?.profileImage ? (
+                <Image
+                  source={{ uri: cldPreset.avatar(user.profileImage, 96) }}
+                  style={styles.avatar}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]}>
+                  <Text style={styles.avatarText}>
+                    {(user?.fullName || '?').trim().charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
-        </View>
-
-        <View style={styles.searchWrap}>
-          <Ionicons name="search" size={18} color={Brand.textLight} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search for a service..."
-            placeholderTextColor={Brand.textLight}
-            value={search}
-            onChangeText={setSearch}
-          />
         </View>
       </SafeAreaView>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={{ marginBottom: 14 }}>
-          <LocationHeader />
+        <LocationHeader />
+
+        {/* Search */}
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={19} color={colors.textLight} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for a service..."
+            placeholderTextColor={colors.textLight}
+            value={search}
+            onChangeText={setSearch}
+            returnKeyType="search"
+            onSubmitEditing={submitSearch}
+          />
         </View>
 
-        {/* Banner Carousel */}
-        {banners.length > 0 ? (
-          <View style={{ marginBottom: 14 }}>
-            <FlatList
-              ref={bannerRef}
-              data={banners}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(b) => b.id}
-              onMomentumScrollEnd={(e) => { const idx = Math.round(e.nativeEvent.contentOffset.x / screenWidth); setBannerIdx(idx); }}
-              getItemLayout={(_, index) => ({ length: screenWidth, offset: screenWidth * index, index })}
-              renderItem={({ item }) => (
-                <View style={[styles.bannerSlide, { width: screenWidth }]}>
-                  <Image source={{ uri: `https://fixoservice.vercel.app${item.image}` }} style={styles.bannerImg} contentFit="cover" transition={200} />
-                </View>
-              )}
-            />
-            {banners.length > 1 && (
-              <View style={styles.bannerDots}>
-                {banners.map((_, i) => (
-                  <View key={i} style={[styles.bannerDot, i === bannerIdx && styles.bannerDotActive]} />
-                ))}
-              </View>
-            )}
-          </View>
-        ) : (
-          <LinearGradient colors={[Brand.orange, '#fb923c']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.banner}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bannerTitle}>Book trusted experts</Text>
-              <Text style={styles.bannerSub}>Verified professionals near you, at fair prices.</Text>
-            </View>
-            <Ionicons name="shield-checkmark" size={54} color="rgba(255,255,255,0.35)" />
-          </LinearGradient>
-        )}
-
-        {/* Active bookings — live status, right below the banner */}
-        <ActiveBookingsHome />
-
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>All Services</Text>
-          <Text style={styles.sectionCount}>{filtered.length}</Text>
-        </View>
-
+        {/* Category shortcuts */}
         {loading ? (
-          <ActivityIndicator color={Brand.orange} style={{ marginTop: 40 }} />
-        ) : filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="cube-outline" size={36} color={Brand.textLight} />
-            </View>
-            <Text style={styles.emptyTitle}>{search ? 'No matching services' : 'No services available'}</Text>
-            <Text style={styles.emptyText}>{search ? 'Try a different keyword.' : 'Please check back again soon.'}</Text>
-          </View>
+          <ActivityIndicator color={colors.orange} style={{ marginTop: 36 }} />
         ) : (
-          <View style={styles.grid}>
-            {filtered.map((cat) => (
-              <TouchableOpacity
-                key={cat._id}
-                style={styles.catCard}
-                activeOpacity={0.85}
-                onPress={() => router.push({ pathname: '/service/[id]', params: { id: cat._id, name: cat.name } })}
-              >
-                {/* Image sits in its own frame; the details live on a solid surface
-                    below it, so text contrast never depends on how bright the photo is. */}
-                <View style={styles.catImgWrap}>
-                  {cat.image ? (
-                    <Image source={{ uri: cldPreset.category(cat.image) }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
-                  ) : (
-                    <View style={[StyleSheet.absoluteFill, styles.catFallback]}>
-                      <Ionicons name="construct" size={38} color={Brand.orange} />
-                    </View>
-                  )}
+          <View style={styles.tileGrid}>
+            {shortcuts.map((cat) => (
+              <TouchableOpacity key={cat._id} style={styles.tile} activeOpacity={0.7} onPress={() => openCategory(cat)}>
+                <View style={styles.tileCircle}>
+                  <Ionicons name={serviceIconFor(cat.name)} size={26} color={colors.orange} />
                 </View>
-
-                <View style={styles.catBody}>
-                  <Text style={styles.catName} numberOfLines={2}>{cat.name}</Text>
-                  {cat.priceStartsFrom ? (
-                    <Text style={styles.catPrice}>
-                      from <Text style={styles.catPriceValue}>₹{cat.priceStartsFrom}</Text>
-                    </Text>
-                  ) : null}
-                  <View style={styles.catBookRow}>
-                    <Text style={styles.catBookText}>Book now</Text>
-                    <Ionicons name="arrow-forward" size={12} color={Brand.orange} />
-                  </View>
-                </View>
+                <Text style={styles.tileLabel} numberOfLines={2}>
+                  {cat.name}
+                </Text>
               </TouchableOpacity>
             ))}
+
+            <TouchableOpacity style={styles.tile} activeOpacity={0.7} onPress={() => router.push('/service/all')}>
+              <View style={styles.tileCircle}>
+                <Ionicons name="ellipsis-horizontal" size={25} color={colors.textLight} />
+              </View>
+              <Text style={styles.tileLabel}>More</Text>
+            </TouchableOpacity>
           </View>
         )}
+
+        {/* Trust banner */}
+        <View style={styles.trustCard}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.trustTitle}>Verified. Reviewed. Reliable.</Text>
+            <Text style={styles.trustSub}>Only the best, for your home.</Text>
+          </View>
+          <Ionicons name="shield-checkmark" size={38} color={colors.orange} />
+        </View>
+
+        {/* Active bookings — live status */}
+        <ActiveBookingsHome />
+
+        {/* Popular services */}
+        {popular.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>Popular Services</Text>
+              <TouchableOpacity onPress={() => router.push('/service/all')} activeOpacity={0.7}>
+                <Text style={styles.sectionLink}>View all</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.railContent}
+              // Negative margin lets the rail bleed to the screen edges while the content
+              // keeps the same gutter as the rest of the page.
+              style={styles.rail}
+            >
+              {popular.map((cat) => (
+                <TouchableOpacity
+                  key={cat._id}
+                  style={styles.popularCard}
+                  activeOpacity={0.85}
+                  onPress={() => openCategory(cat)}
+                >
+                  <View style={styles.popularImgWrap}>
+                    {cat.image ? (
+                      <Image
+                        source={{ uri: cldPreset.category(cat.image) }}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    ) : (
+                      <View style={[StyleSheet.absoluteFill, styles.popularFallback]}>
+                        <Ionicons name={serviceIconFor(cat.name)} size={30} color={colors.orange} />
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.popularBody}>
+                    <Text style={styles.popularName} numberOfLines={1}>
+                      {cat.name}
+                    </Text>
+                    <Text style={styles.popularPrice}>
+                      {cat.priceStartsFrom ? (
+                        <>
+                          From <Text style={styles.popularPriceValue}>₹{cat.priceStartsFrom}</Text>
+                        </>
+                      ) : (
+                        'View details'
+                      )}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* How Fixo works, describing a job, why Fixo, FAQ — mirrors the web home. */}
         <HomeStory />
       </ScrollView>
+
+      <AppDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </View>
   );
 }
 
-// Explicit square-card size: scroll padding (20×2) + one 14px gap, split across 2 cards.
-// Numeric width/height avoids the RN gotcha where aspectRatio + percentage width inside
-// a flexWrap row can compute to zero height (which hid the cards entirely).
-const CARD_W = (Dimensions.get('window').width - 40 - 14) / 2;
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.bg },
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.bg },
-  headerSafe: { backgroundColor: Brand.navy, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
-  logoImg: { width: 80, height: 26 },
-  greetRow: { marginTop: 10 },
-  hi: { color: '#aab8d8', fontSize: 13 },
-  name: { color: Brand.white, fontSize: 22, fontWeight: '800' },
-  bell: { height: 42, width: 42, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  bellBadge: { position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Brand.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
-  bellBadgeT: { color: '#fff', fontSize: 9, fontWeight: '800' },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Brand.white, borderRadius: 14, paddingHorizontal: 14, marginTop: 16 },
-  searchInput: { flex: 1, paddingVertical: 13, fontSize: 14.5, color: Brand.text },
-  scroll: { padding: 20, paddingBottom: 40 },
-  banner: { flexDirection: 'row', alignItems: 'center', borderRadius: 20, padding: 20, overflow: 'hidden' },
-  bannerTitle: { color: Brand.white, fontSize: 18, fontWeight: '900' },
-  bannerSub: { color: 'rgba(255,255,255,0.92)', fontSize: 12.5, marginTop: 6, lineHeight: 17 },
-  bannerSlide: { borderRadius: 16, overflow: 'hidden' },
-  bannerImg: { width: '100%', height: 160, borderRadius: 16 },
-  bannerDots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 10 },
-  bannerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d1d5db' },
-  bannerDotActive: { width: 20, backgroundColor: Brand.orange },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 26, marginBottom: 14 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: Brand.text },
-  sectionCount: { fontSize: 12, fontWeight: '700', color: Brand.orange, backgroundColor: Brand.orange50, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
-  empty: { alignItems: 'center', marginTop: 50, gap: 6 },
-  emptyIcon: { height: 80, width: 80, borderRadius: 40, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  emptyTitle: { color: Brand.text, fontSize: 16, fontWeight: '800' },
-  emptyText: { color: Brand.textMuted, fontSize: 13.5 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  catCard: {
-    width: CARD_W, borderRadius: 18, overflow: 'hidden', backgroundColor: Brand.card,
-    borderWidth: 1, borderColor: Brand.border,
-    shadowColor: '#0f1c3f', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
-  },
-  // Explicit numeric height (4:3 of the card width) — `aspectRatio` on a child inside a
-  // flexWrap row is the RN gotcha that collapsed these cards to zero height before.
-  catImgWrap: { width: '100%', height: Math.round((CARD_W * 3) / 4), backgroundColor: Brand.bg },
-  catFallback: { backgroundColor: Brand.orange50, alignItems: 'center', justifyContent: 'center' },
-  catBody: { paddingHorizontal: 11, paddingTop: 9, paddingBottom: 11 },
-  catName: { fontSize: 14, fontWeight: '800', color: Brand.text, lineHeight: 18 },
-  catPrice: { marginTop: 3, fontSize: 11.5, color: Brand.textLight },
-  catPriceValue: { fontWeight: '800', color: Brand.text },
-  catBookRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7 },
-  catBookText: { fontSize: 12, color: Brand.orange, fontWeight: '800' },
-});
+    headerSafe: {
+      backgroundColor: c.card,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.border,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 8,
+      height: 54,
+    },
+    headerBtn: { padding: 8 },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    logo: { width: 96, height: 30 },
+    bellBadge: {
+      position: 'absolute',
+      top: 3,
+      right: 3,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      paddingHorizontal: 3,
+      backgroundColor: c.danger,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+    avatar: { width: 34, height: 34, borderRadius: 17, marginLeft: 4, backgroundColor: c.surface },
+    avatarFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: c.orange },
+    avatarText: { color: c.onAccent, fontSize: 14, fontWeight: '800' },
+
+    scroll: { paddingHorizontal: GUTTER, paddingTop: 6, paddingBottom: 36 },
+
+    searchWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: c.surface,
+      borderRadius: 16,
+      paddingHorizontal: 15,
+      marginTop: 10,
+    },
+    searchInput: { flex: 1, paddingVertical: 14, fontSize: 14.5, color: c.text },
+
+    tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 20 },
+    tile: { width: TILE_W, alignItems: 'center', gap: 8 },
+    tileCircle: {
+      width: TILE_W - 8,
+      height: TILE_W - 8,
+      borderRadius: (TILE_W - 8) / 2,
+      backgroundColor: c.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tileLabel: { fontSize: 11.5, fontWeight: '700', color: c.text, textAlign: 'center', lineHeight: 15 },
+
+    trustCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 22,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      borderRadius: 18,
+      backgroundColor: c.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+    },
+    trustTitle: { fontSize: 15.5, fontWeight: '800', color: c.text },
+    trustSub: { fontSize: 13, color: c.textMuted, marginTop: 3 },
+
+    section: { marginTop: 26 },
+    sectionHead: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+    sectionTitle: { fontSize: 16.5, fontWeight: '800', color: c.text },
+    sectionLink: { fontSize: 12.5, fontWeight: '800', color: c.orange },
+
+    rail: { marginHorizontal: -GUTTER, marginTop: 12 },
+    railContent: { paddingHorizontal: GUTTER, gap: 12 },
+    popularCard: {
+      width: POPULAR_CARD_W,
+      borderRadius: 18,
+      overflow: 'hidden',
+      backgroundColor: c.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+    },
+    popularImgWrap: {
+      width: '100%',
+      height: Math.round((POPULAR_CARD_W * 3) / 4),
+      backgroundColor: c.surface,
+    },
+    popularFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: c.orange50 },
+    popularBody: { paddingHorizontal: 11, paddingTop: 9, paddingBottom: 11 },
+    popularName: { fontSize: 13.5, fontWeight: '800', color: c.text },
+    popularPrice: { marginTop: 4, fontSize: 11.5, fontWeight: '600', color: c.textMuted },
+    popularPriceValue: { fontWeight: '800', color: c.text },
+  });
