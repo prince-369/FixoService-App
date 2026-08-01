@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import api from '@/lib/api';
-import { Brand } from '@/lib/config';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 type ServiceItem = string | { title?: string; description?: string; _id?: string };
 
@@ -31,6 +31,8 @@ const categoryIcon = (name?: string): keyof typeof Ionicons.glyphMap => {
 };
 
 export default function ServiceDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   const router = useRouter();
   const [cat, setCat] = useState<CategoryDetail | null>(null);
@@ -52,7 +54,7 @@ export default function ServiceDetailScreen() {
       <SafeAreaView edges={['top']} style={styles.topbar}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-            <Ionicons name="arrow-back" size={22} color={Brand.white} />
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.topTitle} numberOfLines={1}>Service</Text>
           <View style={{ width: 40 }} />
@@ -61,7 +63,7 @@ export default function ServiceDetailScreen() {
         {/* Friendly hero */}
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
-            <Ionicons name={categoryIcon(title)} size={30} color={Brand.white} />
+            <Ionicons name={categoryIcon(title)} size={30} color={colors.white} />
           </View>
           <Text style={styles.heroTitle} numberOfLines={2}>{title}</Text>
           <Text style={styles.heroSub}>
@@ -72,7 +74,7 @@ export default function ServiceDetailScreen() {
       </SafeAreaView>
 
       {loading ? (
-        <ActivityIndicator color={Brand.orange} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={colors.orange} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {cat?.description ? (
@@ -91,7 +93,7 @@ export default function ServiceDetailScreen() {
                 if (!sTitle) return null;
                 return (
                   <View key={i} style={styles.serviceRow}>
-                    <Ionicons name="checkmark-circle" size={20} color={Brand.success} />
+                    <Ionicons name="checkmark-circle" size={20} color={colors.success} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.serviceText}>{sTitle}</Text>
                       {desc ? <Text style={styles.serviceDesc}>{desc}</Text> : null}
@@ -104,7 +106,7 @@ export default function ServiceDetailScreen() {
 
           <View style={styles.infoCard}>
             <View style={styles.infoIcon}>
-              <Ionicons name="shield-checkmark" size={20} color={Brand.navy} />
+              <Ionicons name="shield-checkmark" size={20} color={colors.text} />
             </View>
             <Text style={styles.infoText}>Verified professionals · Transparent pricing · Secure payment</Text>
           </View>
@@ -118,34 +120,35 @@ export default function ServiceDetailScreen() {
           onPress={() => router.push({ pathname: '/booking/new', params: { category: String(id), name: cat?.name || String(name || '') } })}
         >
           <Text style={styles.bookText}>Book Now</Text>
-          <Ionicons name="arrow-forward" size={18} color={Brand.white} />
+          <Ionicons name="arrow-forward" size={18} color={colors.white} />
         </TouchableOpacity>
       </SafeAreaView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.bg },
-  topbar: { backgroundColor: Brand.navy, borderBottomLeftRadius: 26, borderBottomRightRadius: 26, paddingBottom: 22 },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg },
+  topbar: { backgroundColor: c.navy, borderBottomLeftRadius: 26, borderBottomRightRadius: 26, paddingBottom: 22 },
   topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 4 },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { flex: 1, color: Brand.white, fontSize: 15, fontWeight: '700', textAlign: 'center', opacity: 0.85 },
+  topTitle: { flex: 1, color: c.white, fontSize: 15, fontWeight: '700', textAlign: 'center', opacity: 0.85 },
   hero: { alignItems: 'center', paddingHorizontal: 20, marginTop: 4 },
   heroIcon: { width: 64, height: 64, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  heroTitle: { color: Brand.white, fontSize: 24, fontWeight: '900', textAlign: 'center', marginTop: 12 },
+  heroTitle: { color: c.white, fontSize: 24, fontWeight: '900', textAlign: 'center', marginTop: 12 },
   heroSub: { color: '#cfd8ee', fontSize: 13, marginTop: 4 },
   scroll: { padding: 16, paddingBottom: 30, gap: 14 },
-  card: { backgroundColor: Brand.card, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: Brand.text, marginBottom: 10 },
-  desc: { fontSize: 14, color: Brand.textMuted, lineHeight: 21 },
+  card: { backgroundColor: c.card, borderRadius: 18, padding: 18, borderWidth: 1, borderColor: c.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: c.text, marginBottom: 10 },
+  desc: { fontSize: 14, color: c.textMuted, lineHeight: 21 },
   serviceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
-  serviceText: { fontSize: 14, color: Brand.text, fontWeight: '600' },
-  serviceDesc: { fontSize: 12.5, color: Brand.textMuted, marginTop: 2, lineHeight: 17 },
-  infoCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Brand.navy50, borderRadius: 18, padding: 16 },
-  infoIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: Brand.white, alignItems: 'center', justifyContent: 'center' },
-  infoText: { fontSize: 12.5, color: Brand.navy, flex: 1, fontWeight: '600', lineHeight: 18 },
-  footer: { backgroundColor: Brand.card, borderTopWidth: 1, borderTopColor: Brand.border, paddingHorizontal: 20, paddingTop: 12 },
-  bookBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.orange, borderRadius: 16, paddingVertical: 16 },
-  bookText: { color: Brand.white, fontSize: 16, fontWeight: '800' },
+  serviceText: { fontSize: 14, color: c.text, fontWeight: '600' },
+  serviceDesc: { fontSize: 12.5, color: c.textMuted, marginTop: 2, lineHeight: 17 },
+  infoCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.navy50, borderRadius: 18, padding: 16 },
+  infoIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center' },
+  infoText: { fontSize: 12.5, color: c.text, flex: 1, fontWeight: '600', lineHeight: 18 },
+  footer: { backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.border, paddingHorizontal: 20, paddingTop: 12 },
+  bookBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.orange, borderRadius: 16, paddingVertical: 16 },
+  bookText: { color: c.white, fontSize: 16, fontWeight: '800' },
 });

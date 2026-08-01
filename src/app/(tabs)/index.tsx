@@ -25,6 +25,7 @@ import HomeStory from '@/components/HomeStory';
 import AppDrawer from '@/components/AppDrawer';
 import { badgeBus, useNotifsUnread } from '@/lib/badgeBus';
 import { cldPreset } from '@/lib/cldUrl';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface Category {
   _id: string;
@@ -105,6 +106,8 @@ export default function HomeScreen() {
           <Image source={LOGO} style={styles.logo} contentFit="contain" />
 
           <View style={styles.headerRight}>
+            <ThemeToggle size={22} />
+
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => router.push('/notifications')}

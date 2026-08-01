@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Brand } from '@/lib/config';
+import { useTheme, type ThemeColors } from '@/lib/theme';
+
 
 type ToastType = 'success' | 'error' | 'info';
 interface ToastData { message: string; type: ToastType; id: number; }
@@ -18,6 +19,8 @@ export const toast = {
 
 /** Place this once in your root layout */
 export function ToastProvider() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [toasts, setToasts] = useState<ToastData[]>([]);
 
   useEffect(() => {
@@ -39,6 +42,8 @@ export function ToastProvider() {
 }
 
 function ToastItem({ data }: { data: ToastData }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-20)).current;
 
@@ -56,19 +61,20 @@ function ToastItem({ data }: { data: ToastData }) {
     return () => clearTimeout(t);
   }, []);
 
-  const bg = data.type === 'success' ? Brand.success : data.type === 'error' ? Brand.danger : Brand.navy;
+  const bg = data.type === 'success' ? colors.success : data.type === 'error' ? colors.danger : colors.navy;
   const icon = data.type === 'success' ? 'checkmark-circle' : data.type === 'error' ? 'alert-circle' : 'information-circle';
 
   return (
     <Animated.View style={[styles.toast, { backgroundColor: bg, opacity, transform: [{ translateY }] }]}>
-      <Ionicons name={icon} size={20} color={Brand.white} />
+      <Ionicons name={icon} size={20} color={colors.white} />
       <Text style={styles.text}>{data.message}</Text>
     </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: { position: 'absolute', top: 60, left: 16, right: 16, zIndex: 9999, alignItems: 'center' },
   toast: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, marginBottom: 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  text: { color: Brand.white, fontSize: 14, fontWeight: '700', flex: 1 },
+  text: { color: c.white, fontSize: 14, fontWeight: '700', flex: 1 },
 });

@@ -1,5 +1,3 @@
-import { Brand } from './config';
-
 export const formatCurrency = (n?: number): string => `₹${(n || 0).toLocaleString('en-IN')}`;
 
 export const formatDate = (iso?: string): string => {
@@ -32,5 +30,10 @@ export const BOOKING_STATUS: Record<string, { label: string; color: string; bg: 
   cancelled: { label: 'Cancelled', color: '#b91c1c', bg: '#fee2e2' },
 };
 
+/**
+ * Status badges are self-contained colour pairs (dark text on a light tint), so they stay
+ * legible on both themes. The unknown-status fallback uses a neutral pair for the same
+ * reason — this is a pure module, so it must not depend on the active theme.
+ */
 export const statusOf = (s?: string) =>
-  BOOKING_STATUS[s || ''] || { label: s || 'Unknown', color: Brand.textMuted, bg: Brand.bg };
+  BOOKING_STATUS[s || ''] || { label: s || 'Unknown', color: '#4b5563', bg: '#e5e7eb' };

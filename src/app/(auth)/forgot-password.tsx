@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -8,9 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Brand } from '@/lib/config';
+
 import { LOGO } from '@/lib/assets';
 import api, { getApiError } from '@/lib/api';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 const ROLE = 'customer';
 
@@ -26,6 +27,8 @@ const isStrongPassword = (p: string) => PASSWORD_RULES.every((r) => r.test(p));
 type Step = 'identifier' | 'email-sent' | 'otp' | 'new-password' | 'success';
 
 export default function ForgotPasswordScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
 
   const [step, setStep] = useState<Step>('identifier');
@@ -124,7 +127,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[Brand.navy, '#13284f', '#0a1430']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.navy, '#13284f', '#0a1430']} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -137,18 +140,18 @@ export default function ForgotPasswordScreen() {
               {step === 'identifier' && (
                 <>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="lock-open-outline" size={28} color={Brand.orange} />
+                    <Ionicons name="lock-open-outline" size={28} color={colors.orange} />
                   </View>
                   <Text style={styles.title}>Forgot Password?</Text>
                   <Text style={styles.subtitle}>Enter your email or phone number to reset your password</Text>
 
                   <Text style={styles.label}>Email or Phone</Text>
                   <View style={styles.inputWrap}>
-                    <Ionicons name="mail-outline" size={18} color={Brand.textLight} />
+                    <Ionicons name="mail-outline" size={18} color={colors.textLight} />
                     <TextInput
                       style={styles.input}
                       placeholder="you@example.com or 9876543210"
-                      placeholderTextColor={Brand.textLight}
+                      placeholderTextColor={colors.textLight}
                       autoCapitalize="none"
                       keyboardType="email-address"
                       value={identifier}
@@ -164,11 +167,11 @@ export default function ForgotPasswordScreen() {
                     disabled={!identifier.trim() || loading}
                     activeOpacity={0.9}
                   >
-                    {loading ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.primaryText}>Send Reset Link</Text>}
+                    {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryText}>Send Reset Link</Text>}
                   </TouchableOpacity>
 
                   <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
-                    <Ionicons name="arrow-back" size={14} color={Brand.textMuted} />
+                    <Ionicons name="arrow-back" size={14} color={colors.textMuted} />
                     <Text style={styles.backText}> Back to Login</Text>
                   </TouchableOpacity>
                 </>
@@ -176,8 +179,8 @@ export default function ForgotPasswordScreen() {
 
               {step === 'email-sent' && (
                 <>
-                  <View style={[styles.iconCircle, { backgroundColor: Brand.successBg }]}>
-                    <Ionicons name="mail-open-outline" size={28} color={Brand.success} />
+                  <View style={[styles.iconCircle, { backgroundColor: colors.successBg }]}>
+                    <Ionicons name="mail-open-outline" size={28} color={colors.success} />
                   </View>
                   <Text style={styles.title}>Check Your Email</Text>
                   <Text style={styles.subtitle}>
@@ -185,7 +188,7 @@ export default function ForgotPasswordScreen() {
                   </Text>
 
                   <TouchableOpacity
-                    style={[styles.primaryBtn, { backgroundColor: Brand.success }]}
+                    style={[styles.primaryBtn, { backgroundColor: colors.success }]}
                     onPress={() => router.back()}
                     activeOpacity={0.9}
                   >
@@ -196,7 +199,7 @@ export default function ForgotPasswordScreen() {
 
               {step === 'otp' && (
                 <>
-                  <View style={[styles.iconCircle, { backgroundColor: '#eff6ff' }]}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.infoBg }]}>
                     <Ionicons name="keypad-outline" size={28} color="#3b82f6" />
                   </View>
                   <Text style={styles.title}>Enter OTP</Text>
@@ -209,14 +212,14 @@ export default function ForgotPasswordScreen() {
                     keyboardType="number-pad"
                     maxLength={6}
                     placeholder="000000"
-                    placeholderTextColor={Brand.textLight}
+                    placeholderTextColor={colors.textLight}
                   />
 
                   {error ? <Text style={styles.error}>{error}</Text> : null}
 
                   <View style={styles.timerRow}>
                     {countdown > 0 ? (
-                      <Text style={styles.timerText}>Resend OTP in <Text style={{ color: Brand.orange, fontWeight: '700' }}>{countdown}s</Text></Text>
+                      <Text style={styles.timerText}>Resend OTP in <Text style={{ color: colors.orange, fontWeight: '700' }}>{countdown}s</Text></Text>
                     ) : (
                       <TouchableOpacity onPress={handleResendOtp}><Text style={styles.resendText}>Resend OTP</Text></TouchableOpacity>
                     )}
@@ -228,11 +231,11 @@ export default function ForgotPasswordScreen() {
                     disabled={otp.length !== 6 || loading}
                     activeOpacity={0.9}
                   >
-                    {loading ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.primaryText}>Verify OTP</Text>}
+                    {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryText}>Verify OTP</Text>}
                   </TouchableOpacity>
 
                   <TouchableOpacity onPress={() => setStep('identifier')} style={styles.backRow}>
-                    <Ionicons name="arrow-back" size={14} color={Brand.textMuted} />
+                    <Ionicons name="arrow-back" size={14} color={colors.textMuted} />
                     <Text style={styles.backText}> Change number</Text>
                   </TouchableOpacity>
                 </>
@@ -240,25 +243,25 @@ export default function ForgotPasswordScreen() {
 
               {step === 'new-password' && (
                 <>
-                  <View style={[styles.iconCircle, { backgroundColor: Brand.successBg }]}>
-                    <Ionicons name="lock-closed-outline" size={28} color={Brand.success} />
+                  <View style={[styles.iconCircle, { backgroundColor: colors.successBg }]}>
+                    <Ionicons name="lock-closed-outline" size={28} color={colors.success} />
                   </View>
                   <Text style={styles.title}>Create New Password</Text>
                   <Text style={styles.subtitle}>Choose a strong password for your account</Text>
 
                   <Text style={styles.label}>New Password</Text>
                   <View style={styles.inputWrap}>
-                    <Ionicons name="lock-closed-outline" size={18} color={Brand.textLight} />
+                    <Ionicons name="lock-closed-outline" size={18} color={colors.textLight} />
                     <TextInput
                       style={styles.input}
                       placeholder="New password"
-                      placeholderTextColor={Brand.textLight}
+                      placeholderTextColor={colors.textLight}
                       secureTextEntry={!showPass}
                       value={password}
                       onChangeText={setPassword}
                     />
                     <TouchableOpacity onPress={() => setShowPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                      <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Brand.textMuted} />
+                      <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
                     </TouchableOpacity>
                   </View>
 
@@ -278,17 +281,17 @@ export default function ForgotPasswordScreen() {
 
                   <Text style={styles.label}>Confirm Password</Text>
                   <View style={styles.inputWrap}>
-                    <Ionicons name="lock-closed-outline" size={18} color={Brand.textLight} />
+                    <Ionicons name="lock-closed-outline" size={18} color={colors.textLight} />
                     <TextInput
                       style={styles.input}
                       placeholder="Re-enter password"
-                      placeholderTextColor={Brand.textLight}
+                      placeholderTextColor={colors.textLight}
                       secureTextEntry={!showConfirmPass}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
                     />
                     <TouchableOpacity onPress={() => setShowConfirmPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                      <Ionicons name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Brand.textMuted} />
+                      <Ionicons name={showConfirmPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
                     </TouchableOpacity>
                   </View>
 
@@ -304,15 +307,15 @@ export default function ForgotPasswordScreen() {
                     disabled={!passwordStrong || !passwordsMatch || loading}
                     activeOpacity={0.9}
                   >
-                    {loading ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.primaryText}>Reset Password</Text>}
+                    {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryText}>Reset Password</Text>}
                   </TouchableOpacity>
                 </>
               )}
 
               {step === 'success' && (
                 <>
-                  <View style={[styles.iconCircle, { backgroundColor: Brand.successBg }]}>
-                    <Ionicons name="checkmark-circle" size={36} color={Brand.success} />
+                  <View style={[styles.iconCircle, { backgroundColor: colors.successBg }]}>
+                    <Ionicons name="checkmark-circle" size={36} color={colors.success} />
                   </View>
                   <Text style={styles.title}>Password Reset!</Text>
                   <Text style={styles.subtitle}>
@@ -320,7 +323,7 @@ export default function ForgotPasswordScreen() {
                   </Text>
 
                   <TouchableOpacity
-                    style={[styles.primaryBtn, { backgroundColor: Brand.success }]}
+                    style={[styles.primaryBtn, { backgroundColor: colors.success }]}
                     onPress={() => router.replace('/(auth)/login')}
                     activeOpacity={0.9}
                   >
@@ -336,44 +339,45 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.navy },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.navy },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 32 },
   header: { alignItems: 'center', marginBottom: 28 },
   logo: { width: 170, height: 60 },
   tagline: { color: '#aab8d8', fontSize: 13, marginTop: 8, textAlign: 'center', alignSelf: 'stretch' },
   card: {
-    backgroundColor: Brand.card, borderRadius: 26, padding: 24, paddingBottom: 40,
+    backgroundColor: c.card, borderRadius: 26, padding: 24, paddingBottom: 40,
     shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 12,
   },
-  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: Brand.orange50, justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 16 },
-  title: { fontSize: 20, fontWeight: '800', color: Brand.text, textAlign: 'center' },
-  subtitle: { fontSize: 13, color: Brand.textMuted, textAlign: 'center', marginTop: 6, marginBottom: 18, lineHeight: 19 },
-  label: { fontSize: 11, fontWeight: '700', color: Brand.textMuted, marginTop: 14, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.6 },
+  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.orange50, justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 16 },
+  title: { fontSize: 20, fontWeight: '800', color: c.text, textAlign: 'center' },
+  subtitle: { fontSize: 13, color: c.textMuted, textAlign: 'center', marginTop: 6, marginBottom: 18, lineHeight: 19 },
+  label: { fontSize: 11, fontWeight: '700', color: c.textMuted, marginTop: 14, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.6 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 14,
+    backgroundColor: c.bg, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingHorizontal: 14,
   },
-  input: { flex: 1, paddingVertical: 14, fontSize: 15, color: Brand.text },
+  input: { flex: 1, paddingVertical: 14, fontSize: 15, color: c.text },
   otpInput: {
     alignSelf: 'center', width: 180, textAlign: 'center', fontSize: 24, fontWeight: '800', letterSpacing: 8,
-    borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingVertical: 12,
-    backgroundColor: Brand.bg, color: Brand.text, marginBottom: 12,
+    borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingVertical: 12,
+    backgroundColor: c.bg, color: c.text, marginBottom: 12,
   },
   rules: { marginTop: 10, gap: 4 },
   ruleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ruleIcon: { fontSize: 13, color: Brand.textLight, fontWeight: '700', width: 16, textAlign: 'center' },
-  ruleIconOk: { color: Brand.success },
-  ruleText: { fontSize: 12, color: Brand.textLight },
-  ruleTextOk: { color: Brand.success },
-  mismatch: { color: Brand.danger, fontSize: 12, marginTop: 6 },
-  error: { color: Brand.danger, fontSize: 12.5, marginTop: 12, textAlign: 'center' },
-  primaryBtn: { backgroundColor: Brand.orange, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
+  ruleIcon: { fontSize: 13, color: c.textLight, fontWeight: '700', width: 16, textAlign: 'center' },
+  ruleIconOk: { color: c.success },
+  ruleText: { fontSize: 12, color: c.textLight },
+  ruleTextOk: { color: c.success },
+  mismatch: { color: c.danger, fontSize: 12, marginTop: 6 },
+  error: { color: c.danger, fontSize: 12.5, marginTop: 12, textAlign: 'center' },
+  primaryBtn: { backgroundColor: c.orange, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
   disabled: { opacity: 0.5 },
-  primaryText: { color: Brand.white, fontSize: 15, fontWeight: '700' },
+  primaryText: { color: c.white, fontSize: 15, fontWeight: '700' },
   timerRow: { alignItems: 'center', marginBottom: 4 },
-  timerText: { fontSize: 12, color: Brand.textMuted },
-  resendText: { fontSize: 12, fontWeight: '700', color: Brand.orange },
+  timerText: { fontSize: 12, color: c.textMuted },
+  resendText: { fontSize: 12, fontWeight: '700', color: c.orange },
   backRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 18 },
-  backText: { color: Brand.text, fontSize: 13 },
+  backText: { color: c.text, fontSize: 13 },
 });

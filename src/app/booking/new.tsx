@@ -12,11 +12,11 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 
 import api, { getApiError } from '@/lib/api';
-import { Brand } from '@/lib/config';
 import { consumePickedLocation } from '@/lib/locationBridge';
 import { getSocket, connectSocket } from '@/lib/socket';
 import { useAppSelector } from '@/store/hooks';
 import { toast } from '@/components/Toast';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 type AvailabilitySummary = { total: number; active: number; inactive: number; radiusMeters: number };
 
@@ -63,6 +63,8 @@ const categoryIcon = (name?: string): keyof typeof Ionicons.glyphMap => {
 };
 
 export default function NewBookingScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { category, name } = useLocalSearchParams<{ category: string; name?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -329,7 +331,7 @@ export default function NewBookingScreen() {
       <SafeAreaView edges={['top']} style={styles.topbar}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-            <Ionicons name="arrow-back" size={22} color={Brand.white} />
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.topTitle} numberOfLines={1}>New Booking</Text>
           <View style={{ width: 40 }} />
@@ -338,7 +340,7 @@ export default function NewBookingScreen() {
         {/* Friendly category banner */}
         <View style={styles.catBanner}>
           <View style={styles.catIcon}>
-            <Ionicons name={categoryIcon(name)} size={24} color={Brand.white} />
+            <Ionicons name={categoryIcon(name)} size={24} color={colors.white} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.catLabel}>You&apos;re booking</Text>
@@ -352,13 +354,13 @@ export default function NewBookingScreen() {
           {/* Describe the work */}
           <View style={styles.card}>
             <View style={styles.cardHead}>
-              <Ionicons name="document-text-outline" size={18} color={Brand.navy} />
+              <Ionicons name="document-text-outline" size={18} color={colors.text} />
               <Text style={styles.cardTitle}>Describe the work</Text>
             </View>
             <TextInput
               style={[styles.input, styles.textarea]}
               placeholder="e.g. Fan not working in bedroom, needs repair... (or use voice below)"
-              placeholderTextColor={Brand.textLight}
+              placeholderTextColor={colors.textLight}
               multiline
               value={description}
               onChangeText={setDescription}
@@ -370,8 +372,8 @@ export default function NewBookingScreen() {
               onPress={listening ? stopSpeech : startSpeech}
               activeOpacity={0.85}
             >
-              <Ionicons name={listening ? 'ellipse' : 'mic'} size={16} color={listening ? Brand.white : Brand.navy} />
-              <Text style={[styles.voiceBtnText, listening && { color: Brand.white }]}>
+              <Ionicons name={listening ? 'ellipse' : 'mic'} size={16} color={listening ? colors.white : colors.navy} />
+              <Text style={[styles.voiceBtnText, listening && { color: colors.white }]}>
                 {listening ? 'Listening… tap to stop' : 'Speak to type'}
               </Text>
             </TouchableOpacity>
@@ -385,19 +387,19 @@ export default function NewBookingScreen() {
             ) : voiceUri ? (
               <View style={styles.voiceAttached}>
                 <TouchableOpacity style={styles.playBtn} onPress={togglePlayVoice} activeOpacity={0.85}>
-                  <Ionicons name={isPlaying ? 'pause' : 'play'} size={18} color={Brand.white} />
+                  <Ionicons name={isPlaying ? 'pause' : 'play'} size={18} color={colors.white} />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.voiceAttachedText}>Voice note attached</Text>
                   <Text style={styles.voicePlayHint}>{isPlaying ? 'Playing… tap to pause' : 'Tap play to hear it back'}</Text>
                 </View>
                 <TouchableOpacity onPress={discardVoice} hitSlop={8}>
-                  <Ionicons name="close-circle" size={22} color={Brand.danger} />
+                  <Ionicons name="close-circle" size={22} color={colors.danger} />
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.recBtn} onPress={startRec} activeOpacity={0.85}>
-                <Ionicons name="mic-circle" size={20} color={Brand.orange} />
+                <Ionicons name="mic-circle" size={20} color={colors.orange} />
                 <Text style={styles.recText}>Record a voice note</Text>
               </TouchableOpacity>
             )}
@@ -406,27 +408,27 @@ export default function NewBookingScreen() {
           {/* Location */}
           <View style={styles.card}>
             <View style={styles.cardHead}>
-              <Ionicons name="location-outline" size={18} color={Brand.navy} />
+              <Ionicons name="location-outline" size={18} color={colors.text} />
               <Text style={styles.cardTitle}>Where do you need it?</Text>
             </View>
             <TouchableOpacity style={styles.mapBtn} onPress={() => router.push('/location-picker')} activeOpacity={0.9}>
-              <Ionicons name="map" size={18} color={Brand.white} />
+              <Ionicons name="map" size={18} color={colors.white} />
               <Text style={styles.mapBtnText}>Choose on map / Search location</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.locBtn} onPress={useMyLocation} disabled={locating}>
-              {locating ? <ActivityIndicator color={Brand.navy} size="small" /> : <Ionicons name="locate" size={18} color={Brand.navy} />}
+              {locating ? <ActivityIndicator color={colors.text} size="small" /> : <Ionicons name="locate" size={18} color={colors.text} />}
               <Text style={styles.locBtnText}>{coords ? 'Update to my current location' : 'Use my current location'}</Text>
             </TouchableOpacity>
             <TextInput
               style={styles.input}
               placeholder="Address (auto-filled, you can edit)"
-              placeholderTextColor={Brand.textLight}
+              placeholderTextColor={colors.textLight}
               value={address}
               onChangeText={setAddress}
             />
             {coords ? (
               <View style={styles.coordRow}>
-                <Ionicons name="pin" size={13} color={Brand.success} />
+                <Ionicons name="pin" size={13} color={colors.success} />
                 <Text style={styles.coordHint}>{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</Text>
               </View>
             ) : null}
@@ -435,7 +437,7 @@ export default function NewBookingScreen() {
             {coords && category ? (
               <View style={styles.availBox}>
                 <View style={styles.availHead}>
-                  <Ionicons name="people" size={14} color={Brand.navy} />
+                  <Ionicons name="people" size={14} color={colors.text} />
                   <Text style={styles.availTitle}>Worker availability around this location</Text>
                 </View>
 
@@ -464,12 +466,12 @@ export default function NewBookingScreen() {
                     <Text style={styles.availHint}>Tell us you want Fixo here and we&apos;ll notify you the moment workers are available near you.</Text>
                     {waitlistJoined ? (
                       <View style={styles.waitlistDone}>
-                        <Ionicons name="checkmark-circle" size={15} color={Brand.success} />
+                        <Ionicons name="checkmark-circle" size={15} color={colors.success} />
                         <Text style={styles.waitlistDoneText}>You&apos;re on the list — we&apos;ll reach out when Fixo arrives here.</Text>
                       </View>
                     ) : (
                       <TouchableOpacity style={[styles.waitlistBtn, joiningWaitlist && { opacity: 0.6 }]} onPress={handleJoinWaitlist} disabled={joiningWaitlist} activeOpacity={0.9}>
-                        {joiningWaitlist ? <ActivityIndicator color={Brand.white} size="small" /> : <Ionicons name="notifications" size={15} color={Brand.white} />}
+                        {joiningWaitlist ? <ActivityIndicator color={colors.white} size="small" /> : <Ionicons name="notifications" size={15} color={colors.white} />}
                         <Text style={styles.waitlistBtnText}>Notify me when Fixo arrives</Text>
                       </TouchableOpacity>
                     )}
@@ -482,7 +484,7 @@ export default function NewBookingScreen() {
           {/* When do you need it? */}
           <View style={styles.card}>
             <View style={styles.cardHead}>
-              <Ionicons name="calendar-outline" size={18} color={Brand.navy} />
+              <Ionicons name="calendar-outline" size={18} color={colors.text} />
               <Text style={styles.cardTitle}>When do you need it?</Text>
             </View>
 
@@ -556,9 +558,9 @@ export default function NewBookingScreen() {
           disabled={submitting || noActiveWorkers}
           activeOpacity={0.9}
         >
-          {submitting ? <ActivityIndicator color={Brand.white} /> : (
+          {submitting ? <ActivityIndicator color={colors.white} /> : (
             <>
-              <Ionicons name={noActiveWorkers ? 'time-outline' : 'checkmark-circle'} size={20} color={Brand.white} />
+              <Ionicons name={noActiveWorkers ? 'time-outline' : 'checkmark-circle'} size={20} color={colors.white} />
               <Text style={styles.submitText}>{noActiveWorkers ? 'No worker available yet' : 'Create Booking'}</Text>
             </>
           )}
@@ -568,78 +570,81 @@ export default function NewBookingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.bg },
-  topbar: { backgroundColor: Brand.navy, borderBottomLeftRadius: 26, borderBottomRightRadius: 26, paddingBottom: 18 },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg },
+  topbar: { backgroundColor: c.navy, borderBottomLeftRadius: 26, borderBottomRightRadius: 26, paddingBottom: 18 },
   topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 4 },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { flex: 1, color: Brand.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  topTitle: { flex: 1, color: c.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
   catBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 6, backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 16, padding: 12 },
-  catIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: Brand.orange, alignItems: 'center', justifyContent: 'center' },
+  catIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center' },
   catLabel: { color: '#cfd8ee', fontSize: 12 },
-  catName: { color: Brand.white, fontSize: 18, fontWeight: '800', marginTop: 1 },
+  catName: { color: c.white, fontSize: 18, fontWeight: '800', marginTop: 1 },
   scroll: { padding: 16, paddingBottom: 100, gap: 14 },
-  card: { backgroundColor: Brand.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  card: { backgroundColor: c.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: c.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  cardTitle: { fontSize: 15.5, fontWeight: '800', color: Brand.text },
-  input: { backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: Brand.text },
+  cardTitle: { fontSize: 15.5, fontWeight: '800', color: c.text },
+  input: { backgroundColor: c.bg, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: c.text },
   textarea: { height: 110, textAlignVertical: 'top' },
-  voiceBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.navy50, borderRadius: 14, paddingVertical: 13, marginTop: 10 },
-  voiceBtnActive: { backgroundColor: Brand.navy },
-  voiceBtnText: { color: Brand.navy, fontWeight: '800', fontSize: 13.5 },
-  recBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.orange50, borderRadius: 14, paddingVertical: 13, marginTop: 10 },
-  recBtnActive: { backgroundColor: '#fef2f2' },
-  recDot: { height: 10, width: 10, borderRadius: 5, backgroundColor: Brand.danger },
-  recText: { color: Brand.orangeDark, fontWeight: '800', fontSize: 13.5 },
-  recTextActive: { color: Brand.danger, fontWeight: '800', fontSize: 13.5 },
-  voiceAttached: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Brand.successBg, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, marginTop: 10 },
-  playBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Brand.success, alignItems: 'center', justifyContent: 'center' },
-  voiceAttachedText: { color: Brand.success, fontWeight: '800', fontSize: 13.5 },
-  voicePlayHint: { color: '#059669', fontWeight: '600', fontSize: 11, marginTop: 1 },
-  mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.navy, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },
-  mapBtnText: { color: Brand.white, fontWeight: '800', fontSize: 14 },
-  locBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.navy50, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },
-  locBtnText: { color: Brand.navy, fontWeight: '800', fontSize: 14 },
+  voiceBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy50, borderRadius: 14, paddingVertical: 13, marginTop: 10 },
+  voiceBtnActive: { backgroundColor: c.navy },
+  voiceBtnText: { color: c.text, fontWeight: '800', fontSize: 13.5 },
+  recBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.orange50, borderRadius: 14, paddingVertical: 13, marginTop: 10 },
+  recBtnActive: { backgroundColor: c.dangerBg },
+  recDot: { height: 10, width: 10, borderRadius: 5, backgroundColor: c.danger },
+  recText: { color: c.orangeDark, fontWeight: '800', fontSize: 13.5 },
+  recTextActive: { color: c.danger, fontWeight: '800', fontSize: 13.5 },
+  voiceAttached: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.successBg, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, marginTop: 10 },
+  playBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: c.success, alignItems: 'center', justifyContent: 'center' },
+  voiceAttachedText: { color: c.success, fontWeight: '800', fontSize: 13.5 },
+  voicePlayHint: { color: c.success, fontWeight: '600', fontSize: 11, marginTop: 1 },
+  mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },
+  mapBtnText: { color: c.white, fontWeight: '800', fontSize: 14 },
+  locBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy50, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },
+  locBtnText: { color: c.text, fontWeight: '800', fontSize: 14 },
   coordRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  coordHint: { fontSize: 12, color: Brand.textMuted, fontWeight: '600' },
+  coordHint: { fontSize: 12, color: c.textMuted, fontWeight: '600' },
   modeRow: { flexDirection: 'row', gap: 10 },
-  modeBtn: { flex: 1, borderWidth: 1.5, borderColor: Brand.border, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 12, backgroundColor: Brand.bg, alignItems: 'center' },
-  modeBtnOn: { borderColor: Brand.orange, backgroundColor: '#fff7ed' },
-  modeText: { fontSize: 13.5, fontWeight: '800', color: Brand.text },
-  modeTextOn: { color: Brand.orange },
-  modeHint: { fontSize: 10.5, color: Brand.textMuted, marginTop: 2, textAlign: 'center' },
-  modeHintOn: { color: '#c2410c' },
-  schedLabel: { fontSize: 11, fontWeight: '800', color: Brand.textMuted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 7 },
+  modeBtn: { flex: 1, borderWidth: 1.5, borderColor: c.border, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 12, backgroundColor: c.bg, alignItems: 'center' },
+  modeBtnOn: { borderColor: c.orange, backgroundColor: c.orange50 },
+  modeText: { fontSize: 13.5, fontWeight: '800', color: c.text },
+  modeTextOn: { color: c.orange },
+  modeHint: { fontSize: 10.5, color: c.textMuted, marginTop: 2, textAlign: 'center' },
+  modeHintOn: { color: c.warn },
+  schedLabel: { fontSize: 11, fontWeight: '800', color: c.textMuted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 7 },
   chipScroll: { gap: 8, paddingRight: 8 },
-  dchip: { borderWidth: 1, borderColor: Brand.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: Brand.bg },
-  dchipOn: { borderColor: Brand.navy, backgroundColor: Brand.navy },
-  dchipText: { fontSize: 12.5, fontWeight: '700', color: Brand.text },
-  dchipTextOn: { color: Brand.white },
-  schedNote: { fontSize: 11, color: Brand.textMuted, lineHeight: 16, marginTop: 12 },
+  dchip: { borderWidth: 1, borderColor: c.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: c.bg },
+  dchipOn: { borderColor: c.navy, backgroundColor: c.navy },
+  dchipText: { fontSize: 12.5, fontWeight: '700', color: c.text },
+  dchipTextOn: { color: c.white },
+  schedNote: { fontSize: 11, color: c.textMuted, lineHeight: 16, marginTop: 12 },
   slotRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  slot: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: Brand.bg },
-  availBox: { marginTop: 12, backgroundColor: '#eef4ff', borderWidth: 1, borderColor: '#d6e4ff', borderRadius: 14, padding: 12 },
+  slot: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: c.bg },
+  // Availability panel — every pair below must come from the palette. A fixed light tint
+  // here would sit behind theme-coloured text and vanish in dark mode.
+  availBox: { marginTop: 12, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: 14, padding: 12 },
   availHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  availTitle: { fontSize: 11.5, fontWeight: '800', color: Brand.navy, textTransform: 'uppercase', letterSpacing: 0.3, flex: 1 },
-  availLoading: { marginTop: 8, fontSize: 13, color: Brand.navy },
+  availTitle: { fontSize: 11.5, fontWeight: '800', color: c.text, textTransform: 'uppercase', letterSpacing: 0.3, flex: 1 },
+  availLoading: { marginTop: 8, fontSize: 13, color: c.textMuted },
   availChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   chip: { borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5 },
-  chipTotal: { backgroundColor: Brand.white },
-  chipTotalText: { fontSize: 12, fontWeight: '800', color: Brand.navy },
-  chipActive: { backgroundColor: '#d1fae5' },
-  chipActiveText: { fontSize: 12, fontWeight: '800', color: '#047857' },
-  chipInactive: { backgroundColor: '#ffedd5' },
-  chipInactiveText: { fontSize: 12, fontWeight: '800', color: '#c2410c' },
-  availHint: { marginTop: 8, fontSize: 11, color: '#3b5bdb', lineHeight: 15 },
-  availEmptyTitle: { fontSize: 13.5, fontWeight: '800', color: '#b45309' },
-  waitlistBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.navy, borderRadius: 12, paddingVertical: 12, marginTop: 2 },
-  waitlistBtnText: { color: Brand.white, fontSize: 13.5, fontWeight: '800' },
-  waitlistDone: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#d1fae5', borderRadius: 10, padding: 10 },
-  waitlistDoneText: { flex: 1, fontSize: 11.5, fontWeight: '700', color: '#047857' },
-  slotActive: { backgroundColor: Brand.navy, borderColor: Brand.navy },
-  slotText: { fontSize: 13.5, fontWeight: '700', color: Brand.textMuted },
-  slotTextActive: { color: Brand.white },
-  footer: { backgroundColor: Brand.card, borderTopWidth: 1, borderTopColor: Brand.border, paddingHorizontal: 20, paddingTop: 12 },
-  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.orange, borderRadius: 16, paddingVertical: 16 },
-  submitText: { color: Brand.white, fontSize: 16, fontWeight: '800' },
+  chipTotal: { backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
+  chipTotalText: { fontSize: 12, fontWeight: '800', color: c.text },
+  chipActive: { backgroundColor: c.successBg },
+  chipActiveText: { fontSize: 12, fontWeight: '800', color: c.success },
+  chipInactive: { backgroundColor: c.orange50 },
+  chipInactiveText: { fontSize: 12, fontWeight: '800', color: c.orangeDark },
+  availHint: { marginTop: 8, fontSize: 11, color: c.textMuted, lineHeight: 15 },
+  availEmptyTitle: { fontSize: 13.5, fontWeight: '800', color: c.warn },
+  waitlistBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy, borderRadius: 12, paddingVertical: 12, marginTop: 2 },
+  waitlistBtnText: { color: c.white, fontSize: 13.5, fontWeight: '800' },
+  waitlistDone: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.successBg, borderRadius: 10, padding: 10 },
+  waitlistDoneText: { flex: 1, fontSize: 11.5, fontWeight: '700', color: c.success },
+  slotActive: { backgroundColor: c.navy, borderColor: c.navy },
+  slotText: { fontSize: 13.5, fontWeight: '700', color: c.textMuted },
+  slotTextActive: { color: c.white },
+  footer: { backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.border, paddingHorizontal: 20, paddingTop: 12 },
+  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.orange, borderRadius: 16, paddingVertical: 16 },
+  submitText: { color: c.white, fontSize: 16, fontWeight: '800' },
 });

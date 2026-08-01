@@ -35,6 +35,28 @@ const initialState: AuthState = {
   hydrated: false,
 };
 
+/**
+ * Log an auth failure without turning an expected one into a red box.
+ *
+ * A 4xx here is the server doing its job — "phone already registered", "invalid
+ * number", "wrong password". The screen already shows that message to the user, so
+ * `console.error` (which LogBox renders as a full-screen dev error) is just noise.
+ * Real faults — network down, 5xx — still go to console.error.
+ */
+const logAuthFailure = (tag: string, err: any): void => {
+  const status: number | undefined = err?.response?.status;
+  const detail = {
+    message: err?.message,
+    code: err?.code,
+    status,
+    data: err?.response?.data,
+    url: err?.config?.baseURL + err?.config?.url,
+  };
+  const expected = typeof status === 'number' && status >= 400 && status < 500;
+  if (expected) console.log(`${tag} (validation)`, JSON.stringify(detail, null, 2));
+  else console.error(tag, JSON.stringify(detail, null, 2));
+};
+
 // Re-fetch /auth/me to refresh the user + block status (used by the block screen
 // to auto-unblock when the penalty timer ends).
 export const refreshMe = createAsyncThunk('auth/refreshMe', async (_, { rejectWithValue }) => {
@@ -60,13 +82,7 @@ export const loginCustomer = createAsyncThunk(
       if (err?.response?.status === 403 && err?.response?.data?.needsPassword) {
         return rejectWithValue(err.response.data);
       }
-      console.error('[LOGIN ERROR]', JSON.stringify({
-        message: err?.message,
-        code: err?.code,
-        status: err?.response?.status,
-        data: err?.response?.data,
-        url: err?.config?.baseURL + err?.config?.url,
-      }, null, 2));
+      logAuthFailure('[LOGIN ERROR]', err);
       return rejectWithValue(getApiError(err, 'Login failed'));
     }
   }
@@ -79,13 +95,7 @@ export const registerCustomer = createAsyncThunk(
       const res = await api.post('/auth/customer/register', data);
       return res.data;
     } catch (err: any) {
-      console.error('[REGISTER ERROR]', JSON.stringify({
-        message: err?.message,
-        code: err?.code,
-        status: err?.response?.status,
-        data: err?.response?.data,
-        url: err?.config?.baseURL + err?.config?.url,
-      }, null, 2));
+      logAuthFailure('[REGISTER ERROR]', err);
       return rejectWithValue(getApiError(err, 'Registration failed'));
     }
   }

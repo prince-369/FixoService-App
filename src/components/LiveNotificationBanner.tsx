@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAppSelector } from '@/store/hooks';
 import { connectSocket, getSocket } from '@/lib/socket';
-import { Brand } from '@/lib/config';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 interface IncomingNotif { title?: string; message?: string; type?: string; data?: { bookingId?: string } }
 
@@ -15,6 +15,8 @@ interface IncomingNotif { title?: string; message?: string; type?: string; data?
  * app is open, it slides down from the top, auto-dismisses, and is tappable.
  */
 export default function LiveNotificationBanner() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAppSelector((s) => s.auth);
@@ -63,15 +65,15 @@ export default function LiveNotificationBanner() {
     <View style={[styles.overlay, { paddingTop: insets.top + 6 }]} pointerEvents="box-none">
       <Animated.View style={{ transform: [{ translateY }] }}>
         <TouchableOpacity style={styles.card} activeOpacity={0.92} onPress={open}>
-          <View style={[styles.iconBox, { backgroundColor: isOffer ? Brand.orange : Brand.navy }]}>
-            <Ionicons name={isOffer ? 'megaphone' : 'notifications'} size={20} color={Brand.white} />
+          <View style={[styles.iconBox, { backgroundColor: isOffer ? colors.orange : colors.navy }]}>
+            <Ionicons name={isOffer ? 'megaphone' : 'notifications'} size={20} color={colors.white} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.title} numberOfLines={1}>{notif.title || 'Fixo'}</Text>
             {notif.message ? <Text style={styles.msg} numberOfLines={2}>{notif.message}</Text> : null}
           </View>
           <TouchableOpacity onPress={dismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close" size={18} color={Brand.textLight} />
+            <Ionicons name="close" size={18} color={colors.textLight} />
           </TouchableOpacity>
         </TouchableOpacity>
       </Animated.View>
@@ -79,15 +81,16 @@ export default function LiveNotificationBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999, paddingHorizontal: 12 },
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Brand.card, borderRadius: 16, padding: 12,
-    borderWidth: 1, borderColor: Brand.border,
+    backgroundColor: c.card, borderRadius: 16, padding: 12,
+    borderWidth: 1, borderColor: c.border,
     shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 10,
   },
   iconBox: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 14.5, fontWeight: '800', color: Brand.text },
-  msg: { fontSize: 12.5, color: Brand.textMuted, marginTop: 2, lineHeight: 17 },
+  title: { fontSize: 14.5, fontWeight: '800', color: c.text },
+  msg: { fontSize: 12.5, color: c.textMuted, marginTop: 2, lineHeight: 17 },
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -7,8 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { refreshMe, logout } from '@/store/authSlice';
-import { Brand } from '@/lib/config';
 import { useAppActive } from '@/lib/appLifecycle';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 const fmt = (ms: number): string => {
   if (ms <= 0) return '00:00:00';
@@ -20,6 +20,8 @@ const fmt = (ms: number): string => {
 };
 
 export default function BlockedScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { block } = useAppSelector((s) => s.auth);
@@ -52,9 +54,9 @@ export default function BlockedScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[Brand.navy, '#13284f', '#0a1430']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.navy, '#13284f', '#0a1430']} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.safe}>
-        <View style={styles.iconCircle}><Ionicons name="lock-closed" size={40} color={Brand.amber} /></View>
+        <View style={styles.iconCircle}><Ionicons name="lock-closed" size={40} color={colors.amber} /></View>
         <Text style={styles.title}>Account Temporarily Restricted</Text>
         <Text style={styles.sub}>
           Aapka account kuch der ke liye restrict kiya gaya hai. Is dauraan aap nayi booking nahi kar paayenge.
@@ -73,7 +75,7 @@ export default function BlockedScreen() {
         ) : null}
 
         <TouchableOpacity style={styles.helpBtn} onPress={() => router.push('/help')} activeOpacity={0.9}>
-          <Ionicons name="help-buoy-outline" size={18} color={Brand.white} />
+          <Ionicons name="help-buoy-outline" size={18} color={colors.white} />
           <Text style={styles.helpT}>Get Help &amp; Support</Text>
         </TouchableOpacity>
 
@@ -89,20 +91,21 @@ export default function BlockedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.navy },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.navy },
   safe: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
   iconCircle: { width: 86, height: 86, borderRadius: 43, backgroundColor: 'rgba(245,158,11,0.15)', alignItems: 'center', justifyContent: 'center' },
-  title: { color: Brand.white, fontSize: 21, fontWeight: '800', textAlign: 'center', marginTop: 20 },
+  title: { color: c.white, fontSize: 21, fontWeight: '800', textAlign: 'center', marginTop: 20 },
   sub: { color: '#aab8d8', fontSize: 13.5, textAlign: 'center', marginTop: 10, lineHeight: 20 },
   timerBox: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 18, paddingVertical: 18, paddingHorizontal: 40, marginTop: 24 },
   timerLabel: { color: '#8fa0c4', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  timer: { color: Brand.amber, fontSize: 36, fontWeight: '800', marginTop: 6, letterSpacing: 2, fontVariant: ['tabular-nums'] },
+  timer: { color: c.amber, fontSize: 36, fontWeight: '800', marginTop: 6, letterSpacing: 2, fontVariant: ['tabular-nums'] },
   reasonBox: { alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14, marginTop: 18 },
   reasonLabel: { color: '#8fa0c4', fontSize: 10.5, fontWeight: '800', textTransform: 'uppercase' },
   reasonText: { color: '#e5e9f3', fontSize: 13.5, marginTop: 4, lineHeight: 19 },
-  helpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Brand.orange, borderRadius: 14, paddingVertical: 15, alignSelf: 'stretch', marginTop: 24 },
-  helpT: { color: Brand.white, fontSize: 15, fontWeight: '800' },
+  helpBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.orange, borderRadius: 14, paddingVertical: 15, alignSelf: 'stretch', marginTop: 24 },
+  helpT: { color: c.white, fontSize: 15, fontWeight: '800' },
   checkBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 },
   checkT: { color: '#cfd8ee', fontSize: 13.5, fontWeight: '700' },
   logoutBtn: { marginTop: 20 },

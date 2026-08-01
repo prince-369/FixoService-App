@@ -43,6 +43,15 @@ export interface ThemeColors {
   successBg: string;
   danger: string;
   dangerBg: string;
+  /** Amber "heads up" pair — used by warning cards and rating pills. */
+  warn: string;
+  warnBg: string;
+  /** Blue informational pair — scheduled-time cards, hints. */
+  info: string;
+  infoBg: string;
+  /** Decorative menu/category accents. Both must stay legible on `card`/`surface`. */
+  accentPurple: string;
+  accentTeal: string;
   white: string;
   /** Colour for content placed on the orange accent. */
   onAccent: string;
@@ -69,6 +78,12 @@ const LIGHT: ThemeColors = {
   successBg: '#ecfdf5',
   danger: '#ef4444',
   dangerBg: '#fef2f2',
+  warn: '#b45309',
+  warnBg: '#fffbeb',
+  info: '#1d4ed8',
+  infoBg: '#eff6ff',
+  accentPurple: '#7c3aed',
+  accentTeal: '#0e7490',
   white: '#ffffff',
   onAccent: '#ffffff',
   scrim: 'rgba(15,28,63,0.55)',
@@ -93,6 +108,12 @@ const DARK: ThemeColors = {
   successBg: '#062e22',
   danger: '#f87171',
   dangerBg: '#3a1414',
+  warn: '#fbbf24',
+  warnBg: '#2a1e08',
+  info: '#93c5fd',
+  infoBg: '#0f1d33',
+  accentPurple: '#c4b5fd',
+  accentTeal: '#67e8f9',
   white: '#ffffff',
   onAccent: '#ffffff',
   scrim: 'rgba(0,0,0,0.62)',

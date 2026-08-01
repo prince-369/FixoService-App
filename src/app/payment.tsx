@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -7,7 +7,8 @@ import { WebView } from 'react-native-webview';
 
 import api, { getApiError } from '@/lib/api';
 import { useAppSelector } from '@/store/hooks';
-import { Brand, RAZORPAY_KEY } from '@/lib/config';
+import { RAZORPAY_KEY } from '@/lib/config';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 const checkoutHtml = (opts: {
   key: string; amount: number; orderId: string; name: string; phone: string; email: string;
@@ -39,6 +40,8 @@ const checkoutHtml = (opts: {
 </script></body></html>`;
 
 export default function PaymentScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { bookingId, orderId, amount } = useLocalSearchParams<{ bookingId: string; orderId: string; amount: string }>();
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
@@ -83,7 +86,7 @@ export default function PaymentScreen() {
     return (
       <View style={styles.center}>
         <View style={styles.verifyIcon}>
-          <ActivityIndicator color={Brand.success} size="large" />
+          <ActivityIndicator color={colors.success} size="large" />
         </View>
         <Text style={styles.verifyTitle}>Confirming your payment</Text>
         <Text style={styles.verifyText}>Hang tight, this only takes a moment…</Text>
@@ -95,12 +98,12 @@ export default function PaymentScreen() {
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.header}>
         <View style={styles.lockBadge}>
-          <Ionicons name="lock-closed" size={22} color={Brand.white} />
+          <Ionicons name="lock-closed" size={22} color={colors.white} />
         </View>
         <Text style={styles.headerLabel}>Amount to pay</Text>
         <Text style={styles.headerAmount}>{displayAmount}</Text>
         <View style={styles.secureRow}>
-          <Ionicons name="shield-checkmark" size={14} color={Brand.success} />
+          <Ionicons name="shield-checkmark" size={14} color={colors.success} />
           <Text style={styles.secureText}>Secured by Razorpay</Text>
         </View>
       </SafeAreaView>
@@ -108,7 +111,7 @@ export default function PaymentScreen() {
       <View style={styles.webWrap}>
         {launching && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator color={Brand.orange} size="large" />
+            <ActivityIndicator color={colors.orange} size="large" />
             <Text style={styles.loadingText}>Opening secure payment…</Text>
           </View>
         )}
@@ -125,26 +128,27 @@ export default function PaymentScreen() {
           onMessage={onMessage}
           onLoadEnd={() => setLaunching(false)}
           startInLoadingState
-          style={{ flex: 1, backgroundColor: Brand.navy }}
+          style={{ flex: 1, backgroundColor: colors.navy }}
         />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.navy },
-  header: { backgroundColor: Brand.navy, alignItems: 'center', paddingBottom: 24, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.navy },
+  header: { backgroundColor: c.navy, alignItems: 'center', paddingBottom: 24, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
   lockBadge: { width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   headerLabel: { color: '#cfd8ee', fontSize: 13, marginTop: 14 },
-  headerAmount: { color: Brand.success, fontSize: 38, fontWeight: '900', marginTop: 4 },
+  headerAmount: { color: c.success, fontSize: 38, fontWeight: '900', marginTop: 4 },
   secureRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   secureText: { color: '#cfd8ee', fontSize: 12, fontWeight: '600' },
-  webWrap: { flex: 1, backgroundColor: Brand.navy },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: Brand.navy, zIndex: 2 },
+  webWrap: { flex: 1, backgroundColor: c.navy },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: c.navy, zIndex: 2 },
   loadingText: { color: '#cfd8ee', fontSize: 14, fontWeight: '600' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Brand.bg, gap: 10, paddingHorizontal: 40 },
-  verifyIcon: { width: 72, height: 72, borderRadius: 24, backgroundColor: Brand.successBg, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  verifyTitle: { fontSize: 18, fontWeight: '800', color: Brand.text },
-  verifyText: { fontSize: 14, color: Brand.textMuted, fontWeight: '500', textAlign: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.bg, gap: 10, paddingHorizontal: 40 },
+  verifyIcon: { width: 72, height: 72, borderRadius: 24, backgroundColor: c.successBg, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  verifyTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  verifyText: { fontSize: 14, color: c.textMuted, fontWeight: '500', textAlign: 'center' },
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View, Modal,
@@ -10,12 +10,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginCustomer, googleAuthCustomer, clearError } from '@/store/authSlice';
-import { signInWithGoogle, statusCodes } from '@/lib/googleAuth';
-import { Brand } from '@/lib/config';
+import { signInWithGoogle, statusCodes, GOOGLE_UNAVAILABLE } from '@/lib/googleAuth';
 import { LOGO } from '@/lib/assets';
 import api, { getApiError } from '@/lib/api';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
-// ─── Password Setup Modal ───
+// â”€â”€â”€ Password Setup Modal â”€â”€â”€
 type PwStep = 'prompt' | 'otp' | 'setPassword' | 'success';
 
 function PasswordSetupFlow({
@@ -31,6 +31,8 @@ function PasswordSetupFlow({
   maskedEmail: string;
   role: 'customer' | 'worker';
 }) {
+  const { colors } = useTheme();
+  const pwStyles = useMemo(() => createPwStyles(colors), [colors]);
   const [step, setStep] = useState<PwStep>('prompt');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
@@ -112,8 +114,8 @@ function PasswordSetupFlow({
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {step === 'prompt' && (
               <View style={pwStyles.content}>
-                <View style={[pwStyles.iconCircle, { backgroundColor: Brand.orange50 }]}>
-                  <Ionicons name="shield-checkmark" size={32} color={Brand.orange} />
+                <View style={[pwStyles.iconCircle, { backgroundColor: colors.orange50 }]}>
+                  <Ionicons name="shield-checkmark" size={32} color={colors.orange} />
                 </View>
                 <Text style={pwStyles.title}>Set a Password</Text>
                 <Text style={pwStyles.desc}>
@@ -121,7 +123,7 @@ function PasswordSetupFlow({
                 </Text>
                 {maskedEmail ? <Text style={pwStyles.emailHint}>OTP will be sent to: {maskedEmail}</Text> : null}
                 <TouchableOpacity style={pwStyles.primaryBtn} onPress={sendOtp} disabled={loading} activeOpacity={0.9}>
-                  {loading ? <ActivityIndicator color={Brand.white} /> : <Text style={pwStyles.primaryText}>Yes, Set Password</Text>}
+                  {loading ? <ActivityIndicator color={colors.white} /> : <Text style={pwStyles.primaryText}>Yes, Set Password</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity style={pwStyles.secondaryBtn} onPress={onClose} activeOpacity={0.8}>
                   <Text style={pwStyles.secondaryText}>No, login with Google instead</Text>
@@ -131,7 +133,7 @@ function PasswordSetupFlow({
 
             {step === 'otp' && (
               <View style={pwStyles.content}>
-                <View style={[pwStyles.iconCircle, { backgroundColor: '#eff6ff' }]}>
+                <View style={[pwStyles.iconCircle, { backgroundColor: colors.infoBg }]}>
                   <Ionicons name="mail" size={32} color="#3b82f6" />
                 </View>
                 <Text style={pwStyles.title}>Enter OTP</Text>
@@ -143,12 +145,12 @@ function PasswordSetupFlow({
                   keyboardType="number-pad"
                   maxLength={6}
                   placeholder="000000"
-                  placeholderTextColor={Brand.textLight}
+                  placeholderTextColor={colors.textLight}
                 />
                 {error ? <Text style={pwStyles.error}>{error}</Text> : null}
                 <View style={pwStyles.timerRow}>
                   {countdown > 0 ? (
-                    <Text style={pwStyles.timerText}>Resend OTP in <Text style={{ color: Brand.orange, fontWeight: '700' }}>{countdown}s</Text></Text>
+                    <Text style={pwStyles.timerText}>Resend OTP in <Text style={{ color: colors.orange, fontWeight: '700' }}>{countdown}s</Text></Text>
                   ) : (
                     <TouchableOpacity onPress={resendOtp}><Text style={pwStyles.resendText}>Resend OTP</Text></TouchableOpacity>
                   )}
@@ -167,8 +169,8 @@ function PasswordSetupFlow({
 
             {step === 'setPassword' && (
               <View style={pwStyles.content}>
-                <View style={[pwStyles.iconCircle, { backgroundColor: Brand.successBg }]}>
-                  <Ionicons name="lock-closed" size={32} color={Brand.success} />
+                <View style={[pwStyles.iconCircle, { backgroundColor: colors.successBg }]}>
+                  <Ionicons name="lock-closed" size={32} color={colors.success} />
                 </View>
                 <Text style={pwStyles.title}>Create Password</Text>
                 <Text style={pwStyles.desc}>Choose a strong password (minimum 8 characters)</Text>
@@ -179,7 +181,7 @@ function PasswordSetupFlow({
                   onChangeText={setPassword}
                   secureTextEntry
                   placeholder="Min 8 characters"
-                  placeholderTextColor={Brand.textLight}
+                  placeholderTextColor={colors.textLight}
                 />
                 <Text style={pwStyles.fieldLabel}>Confirm Password</Text>
                 <TextInput
@@ -188,7 +190,7 @@ function PasswordSetupFlow({
                   onChangeText={setConfirmPassword}
                   secureTextEntry
                   placeholder="Re-enter password"
-                  placeholderTextColor={Brand.textLight}
+                  placeholderTextColor={colors.textLight}
                 />
                 {error ? <Text style={pwStyles.error}>{error}</Text> : null}
                 <TouchableOpacity
@@ -197,7 +199,7 @@ function PasswordSetupFlow({
                   disabled={loading || password.length < 8 || password !== confirmPassword}
                   activeOpacity={0.9}
                 >
-                  {loading ? <ActivityIndicator color={Brand.white} /> : <Text style={pwStyles.primaryText}>Set Password</Text>}
+                  {loading ? <ActivityIndicator color={colors.white} /> : <Text style={pwStyles.primaryText}>Set Password</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={onClose}><Text style={pwStyles.cancelText}>Cancel</Text></TouchableOpacity>
               </View>
@@ -205,14 +207,14 @@ function PasswordSetupFlow({
 
             {step === 'success' && (
               <View style={pwStyles.content}>
-                <View style={[pwStyles.iconCircle, { backgroundColor: Brand.successBg }]}>
-                  <Ionicons name="checkmark-circle" size={40} color={Brand.success} />
+                <View style={[pwStyles.iconCircle, { backgroundColor: colors.successBg }]}>
+                  <Ionicons name="checkmark-circle" size={40} color={colors.success} />
                 </View>
                 <Text style={pwStyles.title}>Password Set!</Text>
                 <Text style={pwStyles.desc}>
                   Your password has been set successfully. You can now login with your email/phone and password.
                 </Text>
-                <TouchableOpacity style={[pwStyles.primaryBtn, { backgroundColor: Brand.success }]} onPress={onClose} activeOpacity={0.9}>
+                <TouchableOpacity style={[pwStyles.primaryBtn, { backgroundColor: colors.success }]} onPress={onClose} activeOpacity={0.9}>
                   <Text style={pwStyles.primaryText}>Back to Login</Text>
                 </TouchableOpacity>
               </View>
@@ -224,37 +226,40 @@ function PasswordSetupFlow({
   );
 }
 
-const pwStyles = StyleSheet.create({
+const createPwStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  card: { backgroundColor: Brand.white, borderRadius: 24, padding: 24, width: '100%', maxWidth: 360, maxHeight: '85%' },
+  card: { backgroundColor: c.white, borderRadius: 24, padding: 24, width: '100%', maxWidth: 360, maxHeight: '85%' },
   content: { alignItems: 'center' },
   iconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 18, fontWeight: '800', color: Brand.text, marginBottom: 8 },
-  desc: { fontSize: 13, color: Brand.textMuted, textAlign: 'center', marginBottom: 16, lineHeight: 19 },
-  emailHint: { fontSize: 11, color: Brand.textLight, marginBottom: 16 },
-  primaryBtn: { backgroundColor: Brand.orange, borderRadius: 14, paddingVertical: 14, alignItems: 'center', width: '100%', marginTop: 8 },
-  primaryText: { color: Brand.white, fontSize: 14, fontWeight: '700' },
-  secondaryBtn: { borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingVertical: 14, alignItems: 'center', width: '100%', marginTop: 10 },
-  secondaryText: { color: Brand.textMuted, fontSize: 13, fontWeight: '600' },
+  title: { fontSize: 18, fontWeight: '800', color: c.text, marginBottom: 8 },
+  desc: { fontSize: 13, color: c.textMuted, textAlign: 'center', marginBottom: 16, lineHeight: 19 },
+  emailHint: { fontSize: 11, color: c.textLight, marginBottom: 16 },
+  primaryBtn: { backgroundColor: c.orange, borderRadius: 14, paddingVertical: 14, alignItems: 'center', width: '100%', marginTop: 8 },
+  primaryText: { color: c.white, fontSize: 14, fontWeight: '700' },
+  secondaryBtn: { borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingVertical: 14, alignItems: 'center', width: '100%', marginTop: 10 },
+  secondaryText: { color: c.textMuted, fontSize: 13, fontWeight: '600' },
   otpInput: {
     width: 160, textAlign: 'center', fontSize: 24, fontWeight: '800', letterSpacing: 8,
-    borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingVertical: 12,
-    backgroundColor: Brand.bg, color: Brand.text, marginBottom: 12,
+    borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingVertical: 12,
+    backgroundColor: c.bg, color: c.text, marginBottom: 12,
   },
-  error: { color: Brand.danger, fontSize: 12, marginTop: 6, marginBottom: 6, textAlign: 'center' },
+  error: { color: c.danger, fontSize: 12, marginTop: 6, marginBottom: 6, textAlign: 'center' },
   timerRow: { marginBottom: 12 },
-  timerText: { fontSize: 12, color: Brand.textMuted },
-  resendText: { fontSize: 12, fontWeight: '700', color: Brand.orange },
-  cancelText: { color: Brand.textLight, fontSize: 12, marginTop: 14 },
-  fieldLabel: { fontSize: 11, fontWeight: '700', color: Brand.textMuted, alignSelf: 'flex-start', marginTop: 10, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  timerText: { fontSize: 12, color: c.textMuted },
+  resendText: { fontSize: 12, fontWeight: '700', color: c.orange },
+  cancelText: { color: c.textLight, fontSize: 12, marginTop: 14 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: c.textMuted, alignSelf: 'flex-start', marginTop: 10, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   textInput: {
-    width: '100%', borderWidth: 1, borderColor: Brand.border, borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: Brand.text, backgroundColor: Brand.bg,
+    width: '100%', borderWidth: 1, borderColor: c.border, borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: c.text, backgroundColor: c.bg,
   },
 });
 
-// ─── Login Screen ───
+// â”€â”€â”€ Login Screen â”€â”€â”€
 export default function LoginScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { isLoading, error } = useAppSelector((s) => s.auth);
@@ -298,7 +303,10 @@ export default function LoginScreen() {
         Alert.alert('Google Sign-In Failed', msg);
       }
     } catch (e: any) {
-      if (e?.code !== statusCodes.SIGN_IN_CANCELLED) {
+      if (e?.code === GOOGLE_UNAVAILABLE) {
+        // Expected in Expo Go — not a bug, so don't dress it up as one.
+        Alert.alert('Not available here', `${e.message}\n\nUse email/phone login instead.`);
+      } else if (e?.code !== statusCodes.SIGN_IN_CANCELLED) {
         console.log('[Google] error:', e?.code, e?.message);
         Alert.alert('Google Error', e?.message || 'Something went wrong');
       }
@@ -326,7 +334,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={[Brand.navy, '#13284f', '#0a1430']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[colors.navy, '#13284f', '#0a1430']} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -336,16 +344,16 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.title}>Welcome back 👋</Text>
+              <Text style={styles.title}>Welcome back ðŸ‘‹</Text>
               <Text style={styles.subtitle}>Sign in to book services</Text>
 
               <Text style={styles.label}>Email or Phone</Text>
               <View style={styles.inputWrap}>
-                <Ionicons name="person-outline" size={18} color={Brand.textLight} />
+                <Ionicons name="person-outline" size={18} color={colors.textLight} />
                 <TextInput
                   style={styles.input}
                   placeholder="you@example.com or 9876543210"
-                  placeholderTextColor={Brand.textLight}
+                  placeholderTextColor={colors.textLight}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={emailOrPhone}
@@ -355,17 +363,17 @@ export default function LoginScreen() {
 
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputWrap}>
-                <Ionicons name="lock-closed-outline" size={18} color={Brand.textLight} />
+                <Ionicons name="lock-closed-outline" size={18} color={colors.textLight} />
                 <TextInput
                   style={styles.input}
                   placeholder="Your password"
-                  placeholderTextColor={Brand.textLight}
+                  placeholderTextColor={colors.textLight}
                   secureTextEntry={!showPass}
                   value={password}
                   onChangeText={setPassword}
                 />
                 <TouchableOpacity onPress={() => setShowPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Brand.textMuted} />
+                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
@@ -375,7 +383,7 @@ export default function LoginScreen() {
 
               {error ? (
                 <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle" size={15} color={Brand.danger} />
+                  <Ionicons name="alert-circle" size={15} color={colors.danger} />
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               ) : null}
@@ -386,7 +394,7 @@ export default function LoginScreen() {
                 disabled={isLoading || !emailOrPhone || !password}
                 activeOpacity={0.9}
               >
-                {isLoading ? <ActivityIndicator color={Brand.white} /> : <Text style={styles.primaryText}>Sign In</Text>}
+                {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryText}>Sign In</Text>}
               </TouchableOpacity>
 
               <View style={styles.dividerRow}>
@@ -421,41 +429,42 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.navy },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.navy },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
   header: { alignItems: 'center', marginBottom: 28 },
   logo: { width: 180, height: 64 },
   tagline: { color: '#aab8d8', fontSize: 14, marginTop: 10, textAlign: 'center', alignSelf: 'stretch' },
   card: {
-    backgroundColor: Brand.card, borderRadius: 26, padding: 24,
+    backgroundColor: c.card, borderRadius: 26, padding: 24,
     shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 10 }, elevation: 12,
   },
-  title: { fontSize: 22, fontWeight: '800', color: Brand.text },
-  subtitle: { fontSize: 13, color: Brand.textMuted, marginTop: 4, marginBottom: 14 },
-  label: { fontSize: 11, fontWeight: '700', color: Brand.textMuted, marginTop: 14, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.6 },
+  title: { fontSize: 22, fontWeight: '800', color: c.text },
+  subtitle: { fontSize: 13, color: c.textMuted, marginTop: 4, marginBottom: 14 },
+  label: { fontSize: 11, fontWeight: '700', color: c.textMuted, marginTop: 14, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.6 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Brand.bg, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingHorizontal: 14,
+    backgroundColor: c.bg, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingHorizontal: 14,
   },
-  input: { flex: 1, paddingVertical: 14, fontSize: 15, color: Brand.text },
-  errorBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Brand.dangerBg, borderRadius: 10, padding: 10, marginTop: 14 },
-  errorText: { color: Brand.danger, fontSize: 12.5, flex: 1 },
-  primaryBtn: { backgroundColor: Brand.navy, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
+  input: { flex: 1, paddingVertical: 14, fontSize: 15, color: c.text },
+  errorBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.dangerBg, borderRadius: 10, padding: 10, marginTop: 14 },
+  errorText: { color: c.danger, fontSize: 12.5, flex: 1 },
+  primaryBtn: { backgroundColor: c.navy, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
   disabled: { opacity: 0.5 },
-  primaryText: { color: Brand.white, fontSize: 15, fontWeight: '700' },
+  primaryText: { color: c.white, fontSize: 15, fontWeight: '700' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 18 },
-  divider: { flex: 1, height: 1, backgroundColor: Brand.border },
-  dividerText: { color: Brand.textLight, fontSize: 12 },
+  divider: { flex: 1, height: 1, backgroundColor: c.border },
+  dividerText: { color: c.textLight, fontSize: 12 },
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: Brand.white, borderWidth: 1, borderColor: Brand.border, borderRadius: 14, paddingVertical: 14,
+    backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingVertical: 14,
   },
   googleIcon: { width: 18, height: 18 },
-  googleText: { color: Brand.text, fontSize: 14.5, fontWeight: '700' },
+  googleText: { color: c.text, fontSize: 14.5, fontWeight: '700' },
   forgotRow: { alignSelf: 'flex-end', marginTop: 10 },
-  forgotText: { color: Brand.orange, fontSize: 12.5, fontWeight: '700' },
+  forgotText: { color: c.orange, fontSize: 12.5, fontWeight: '700' },
   linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  linkMuted: { color: Brand.textMuted, fontSize: 13 },
-  link: { color: Brand.orange, fontSize: 13, fontWeight: '800' },
+  linkMuted: { color: c.textMuted, fontSize: 13 },
+  link: { color: c.orange, fontSize: 13, fontWeight: '800' },
 });

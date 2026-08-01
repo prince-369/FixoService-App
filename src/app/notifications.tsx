@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Animated, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,9 +8,9 @@ import { Swipeable } from 'react-native-gesture-handler';
 import api from '@/lib/api';
 import { useAppSelector } from '@/store/hooks';
 import { connectSocket, getSocket } from '@/lib/socket';
-import { Brand } from '@/lib/config';
 import { formatDateTime } from '@/lib/format';
 import { badgeBus } from '@/lib/badgeBus';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 interface Notif {
   _id: string;
@@ -29,16 +29,19 @@ const iconFor = (type?: string): keyof typeof Ionicons.glyphMap => {
   return 'notifications';
 };
 
-// Friendly accent colour per notification type.
-const colorFor = (type?: string): { color: string; bg: string } => {
-  if (type?.includes('bid')) return { color: Brand.orange, bg: Brand.orange50 };
-  if (type?.includes('payment')) return { color: Brand.success, bg: Brand.successBg };
-  if (type?.includes('reward')) return { color: '#7c3aed', bg: '#ede9fe' };
-  if (type?.includes('complete') || type?.includes('work')) return { color: Brand.success, bg: Brand.successBg };
-  return { color: Brand.navy, bg: Brand.navy50 };
+// Friendly accent colour per notification type. Takes the palette so it stays a pure
+// module-level helper while still following the active theme.
+const colorFor = (type: string | undefined, colors: ThemeColors): { color: string; bg: string } => {
+  if (type?.includes('bid')) return { color: colors.orange, bg: colors.orange50 };
+  if (type?.includes('payment')) return { color: colors.success, bg: colors.successBg };
+  if (type?.includes('reward')) return { color: colors.accentPurple, bg: colors.surface };
+  if (type?.includes('complete') || type?.includes('work')) return { color: colors.success, bg: colors.successBg };
+  return { color: colors.text, bg: colors.navy50 };
 };
 
 export default function NotificationsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
   const [items, setItems] = useState<Notif[]>([]);
@@ -87,7 +90,7 @@ export default function NotificationsScreen() {
 
   const renderRightActions = () => (
     <View style={styles.deleteAction}>
-      <Ionicons name="trash" size={20} color={Brand.white} />
+      <Ionicons name="trash" size={20} color={colors.white} />
       <Text style={styles.deleteT}>Delete</Text>
     </View>
   );
@@ -99,7 +102,7 @@ export default function NotificationsScreen() {
       <SafeAreaView edges={['top']} style={styles.topbar}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.back} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={22} color={Brand.white} />
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
           </TouchableOpacity>
           <View style={styles.titleWrap}>
             <Text style={styles.topTitle}>Notifications</Text>
@@ -112,16 +115,16 @@ export default function NotificationsScreen() {
       </SafeAreaView>
 
       {loading ? (
-        <ActivityIndicator color={Brand.orange} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={colors.orange} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={items}
           keyExtractor={(n) => n._id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Brand.orange} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.orange} />}
           renderItem={({ item }) => {
-            const accent = colorFor(item.type);
+            const accent = colorFor(item.type, colors);
             return (
               <Swipeable renderRightActions={renderRightActions} onSwipeableOpen={() => deleteNotif(item._id)} overshootRight={false}>
                 <TouchableOpacity style={[styles.card, !item.isRead && styles.cardUnread]} onPress={() => markRead(item._id)} activeOpacity={0.8}>
@@ -140,7 +143,7 @@ export default function NotificationsScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <View style={styles.emptyIcon}><Ionicons name="notifications-off-outline" size={44} color={Brand.textLight} /></View>
+              <View style={styles.emptyIcon}><Ionicons name="notifications-off-outline" size={44} color={colors.textLight} /></View>
               <Text style={styles.emptyTitle}>You&apos;re all caught up</Text>
               <Text style={styles.emptySub}>New booking, bid and reward updates will appear here.</Text>
             </View>
@@ -151,13 +154,14 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.bg },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg },
   topbar: {
-    backgroundColor: Brand.navy,
+    backgroundColor: c.navy,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    shadowColor: Brand.navy,
+    shadowColor: c.navy,
     shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
@@ -166,22 +170,24 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 16, paddingTop: 4 },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)' },
   titleWrap: { flex: 1, alignItems: 'center' },
-  topTitle: { color: Brand.white, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  topTitle: { color: c.white, fontSize: 18, fontWeight: '800', textAlign: 'center' },
   topSub: { color: 'rgba(255,255,255,0.7)', fontSize: 11.5, fontWeight: '600', marginTop: 1 },
   readAllBtn: { width: 64, alignItems: 'flex-end' },
-  readAll: { color: Brand.amber, fontSize: 13, fontWeight: '800' },
+  readAll: { color: c.amber, fontSize: 13, fontWeight: '800' },
   list: { padding: 16, paddingBottom: 40, gap: 10, flexGrow: 1 },
-  card: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: Brand.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  cardUnread: { borderColor: '#fed7aa', backgroundColor: '#fffdf9' },
+  card: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: c.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: c.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  // Unread highlight has to follow the theme — a fixed near-white tint would render an
+  // unreadable white card under dark mode's light body text.
+  cardUnread: { borderColor: c.orange, backgroundColor: c.orange50 },
   iconWrap: { height: 40, width: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 14.5, fontWeight: '700', color: Brand.text },
-  msg: { fontSize: 13, color: Brand.textMuted, marginTop: 2, lineHeight: 18 },
-  time: { fontSize: 11, color: Brand.textLight, marginTop: 6 },
-  dot: { height: 9, width: 9, borderRadius: 5, backgroundColor: Brand.orange, marginTop: 4 },
-  deleteAction: { backgroundColor: Brand.danger, justifyContent: 'center', alignItems: 'center', width: 80, borderRadius: 16, marginLeft: 8 },
-  deleteT: { color: Brand.white, fontSize: 11, fontWeight: '700', marginTop: 4 },
+  title: { fontSize: 14.5, fontWeight: '700', color: c.text },
+  msg: { fontSize: 13, color: c.textMuted, marginTop: 2, lineHeight: 18 },
+  time: { fontSize: 11, color: c.textLight, marginTop: 6 },
+  dot: { height: 9, width: 9, borderRadius: 5, backgroundColor: c.orange, marginTop: 4 },
+  deleteAction: { backgroundColor: c.danger, justifyContent: 'center', alignItems: 'center', width: 80, borderRadius: 16, marginLeft: 8 },
+  deleteT: { color: c.white, fontSize: 11, fontWeight: '700', marginTop: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 70, paddingHorizontal: 40 },
-  emptyIcon: { height: 84, width: 84, borderRadius: 42, backgroundColor: Brand.card, borderWidth: 1, borderColor: Brand.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: Brand.text },
-  emptySub: { fontSize: 13, color: Brand.textMuted, marginTop: 6, textAlign: 'center', lineHeight: 19 },
+  emptyIcon: { height: 84, width: 84, borderRadius: 42, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: c.text },
+  emptySub: { fontSize: 13, color: c.textMuted, marginTop: 6, textAlign: 'center', lineHeight: 19 },
 });

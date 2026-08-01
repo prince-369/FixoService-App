@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
@@ -8,8 +8,8 @@ import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Brand } from '@/lib/config';
 import { setPickedLocation, searchPlaces, reverseGeocode } from '@/lib/locationBridge';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 const INIT = { lat: 28.6139, lng: 77.209 }; // default: Delhi
 
@@ -31,6 +31,8 @@ const mapHtml = (lat: number, lng: number) => `<!DOCTYPE html><html><head>
 </script></body></html>`;
 
 export default function LocationPickerScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const webRef = useRef<WebView>(null);
 
@@ -88,23 +90,23 @@ export default function LocationPickerScreen() {
       <SafeAreaView edges={['top']} style={styles.topbar}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-            <Ionicons name="arrow-back" size={22} color={Brand.white} />
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Choose Location</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.searchWrap}>
-          <Ionicons name="search" size={18} color={Brand.textLight} />
+          <Ionicons name="search" size={18} color={colors.textLight} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search any area, landmark, city..."
-            placeholderTextColor={Brand.textLight}
+            placeholderTextColor={colors.textLight}
             value={query}
             onChangeText={setQuery}
             onSubmitEditing={runSearch}
             returnKeyType="search"
           />
-          {searching ? <ActivityIndicator size="small" color={Brand.navy} /> : query ? (
+          {searching ? <ActivityIndicator size="small" color={colors.text} /> : query ? (
             <TouchableOpacity onPress={runSearch}><Text style={styles.goText}>Go</Text></TouchableOpacity>
           ) : null}
         </View>
@@ -118,7 +120,7 @@ export default function LocationPickerScreen() {
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.resultRow} onPress={() => pickResult(item)}>
-                <Ionicons name="location-outline" size={16} color={Brand.orange} />
+                <Ionicons name="location-outline" size={16} color={colors.orange} />
                 <Text style={styles.resultText} numberOfLines={2}>{item.label}</Text>
               </TouchableOpacity>
             )}
@@ -135,13 +137,13 @@ export default function LocationPickerScreen() {
           style={{ flex: 1 }}
         />
         <TouchableOpacity style={styles.currentBtn} onPress={useCurrent}>
-          <Ionicons name="locate" size={20} color={Brand.navy} />
+          <Ionicons name="locate" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <View style={styles.addrRow}>
-          <Ionicons name="pin" size={18} color={Brand.orange} />
+          <Ionicons name="pin" size={18} color={colors.orange} />
           <Text style={styles.addrText} numberOfLines={2}>
             {busyAddr ? 'Getting address...' : (address || 'Tap on the map or search to set location')}
           </Text>
@@ -154,27 +156,28 @@ export default function LocationPickerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.bg },
-  topbar: { backgroundColor: Brand.navy, paddingBottom: 12 },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg },
+  topbar: { backgroundColor: c.navy, paddingBottom: 12 },
   topRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 4 },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { flex: 1, color: Brand.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Brand.white, borderRadius: 12, marginHorizontal: 16, marginTop: 6, paddingHorizontal: 14 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14.5, color: Brand.text },
-  goText: { color: Brand.navy, fontWeight: '800', fontSize: 14 },
-  resultsBox: { backgroundColor: Brand.card, maxHeight: 230, borderBottomWidth: 1, borderBottomColor: Brand.border },
-  resultRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: Brand.border },
-  resultText: { flex: 1, fontSize: 13.5, color: Brand.text },
+  topTitle: { flex: 1, color: c.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.white, borderRadius: 12, marginHorizontal: 16, marginTop: 6, paddingHorizontal: 14 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14.5, color: c.text },
+  goText: { color: c.text, fontWeight: '800', fontSize: 14 },
+  resultsBox: { backgroundColor: c.card, maxHeight: 230, borderBottomWidth: 1, borderBottomColor: c.border },
+  resultRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: c.border },
+  resultText: { flex: 1, fontSize: 13.5, color: c.text },
   mapWrap: { flex: 1 },
   currentBtn: {
     position: 'absolute', right: 16, bottom: 16, height: 48, width: 48, borderRadius: 24,
-    backgroundColor: Brand.white, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.white, alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, elevation: 5,
   },
-  footer: { backgroundColor: Brand.card, borderTopWidth: 1, borderTopColor: Brand.border, paddingHorizontal: 20, paddingTop: 14 },
+  footer: { backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.border, paddingHorizontal: 20, paddingTop: 14 },
   addrRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 12 },
-  addrText: { flex: 1, fontSize: 13, color: Brand.textMuted, lineHeight: 18 },
-  confirmBtn: { backgroundColor: Brand.orange, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
-  confirmText: { color: Brand.white, fontSize: 16, fontWeight: '800' },
+  addrText: { flex: 1, fontSize: 13, color: c.textMuted, lineHeight: 18 },
+  confirmBtn: { backgroundColor: c.orange, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
+  confirmText: { color: c.white, fontSize: 16, fontWeight: '800' },
 });

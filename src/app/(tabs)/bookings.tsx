@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,9 +6,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import api from '@/lib/api';
-import { Brand } from '@/lib/config';
 import { formatCurrency, formatDate, statusOf } from '@/lib/format';
 import Pagination, { paginateItems, getTotalPages } from '@/components/Pagination';
+import { useTheme, type ThemeColors } from '@/lib/theme';
 
 interface Booking {
   _id: string;
@@ -33,6 +33,8 @@ const categoryIcon = (name?: string): keyof typeof Ionicons.glyphMap => {
 };
 
 export default function BookingsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function BookingsScreen() {
       <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => router.push(`/booking/${item._id}`)}>
         <View style={styles.cardTop}>
           <View style={styles.iconWrap}>
-            <Ionicons name={categoryIcon(item.category?.name)} size={22} color={Brand.orange} />
+            <Ionicons name={categoryIcon(item.category?.name)} size={22} color={colors.orange} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.cardTitle} numberOfLines={1}>{item.category?.name || 'Service'}</Text>
@@ -75,7 +77,7 @@ export default function BookingsScreen() {
         <View style={styles.divider} />
         <View style={styles.cardBottom}>
           <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={14} color={Brand.textLight} />
+            <Ionicons name="calendar-outline" size={14} color={colors.textLight} />
             <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
           </View>
           {item.amount > 0 ? (
@@ -83,7 +85,7 @@ export default function BookingsScreen() {
           ) : (
             <View style={styles.viewRow}>
               <Text style={styles.viewText}>View details</Text>
-              <Ionicons name="chevron-forward" size={14} color={Brand.orange} />
+              <Ionicons name="chevron-forward" size={14} color={colors.orange} />
             </View>
           )}
         </View>
@@ -106,7 +108,7 @@ export default function BookingsScreen() {
       </SafeAreaView>
 
       {loading ? (
-        <ActivityIndicator color={Brand.orange} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={colors.orange} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={paginateItems(bookings, page, 7)}
@@ -114,17 +116,17 @@ export default function BookingsScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={Brand.orange} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.orange} />}
           ListFooterComponent={bookings.length > 7 ? <Pagination currentPage={page} totalPages={getTotalPages(bookings, 7)} onPageChange={setPage} /> : null}
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={styles.emptyIcon}>
-                <Ionicons name="calendar-outline" size={40} color={Brand.textLight} />
+                <Ionicons name="calendar-outline" size={40} color={colors.textLight} />
               </View>
               <Text style={styles.emptyTitle}>No bookings yet</Text>
               <Text style={styles.emptySub}>Book a service from the Home tab to get started.</Text>
               <TouchableOpacity style={styles.emptyBtn} activeOpacity={0.85} onPress={() => router.push('/(tabs)')}>
-                <Ionicons name="add" size={18} color={Brand.white} />
+                <Ionicons name="add" size={18} color={colors.white} />
                 <Text style={styles.emptyBtnText}>Book a Service</Text>
               </TouchableOpacity>
             </View>
@@ -135,33 +137,34 @@ export default function BookingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Brand.bg },
-  headerSafe: { backgroundColor: Brand.navy, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg },
+  headerSafe: { backgroundColor: c.navy, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   hi: { color: '#aab8d8', fontSize: 13, marginTop: 6 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
-  heading: { fontSize: 24, fontWeight: '800', color: Brand.white },
-  countChip: { backgroundColor: Brand.orange, borderRadius: 12, minWidth: 24, height: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  countChipText: { color: Brand.white, fontSize: 12, fontWeight: '800' },
+  heading: { fontSize: 24, fontWeight: '800', color: c.white },
+  countChip: { backgroundColor: c.orange, borderRadius: 12, minWidth: 24, height: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  countChipText: { color: c.white, fontSize: 12, fontWeight: '800' },
   list: { padding: 20, paddingTop: 16, gap: 12 },
-  card: { backgroundColor: Brand.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Brand.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  card: { backgroundColor: c.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: c.border, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconWrap: { height: 46, width: 46, borderRadius: 14, backgroundColor: Brand.orange50, alignItems: 'center', justifyContent: 'center' },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: Brand.text },
-  cardDesc: { fontSize: 13, color: Brand.textMuted, marginTop: 2 },
+  iconWrap: { height: 46, width: 46, borderRadius: 14, backgroundColor: c.orange50, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: c.text },
+  cardDesc: { fontSize: 13, color: c.textMuted, marginTop: 2 },
   badge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText: { fontSize: 10.5, fontWeight: '800', textTransform: 'uppercase' },
-  divider: { height: 1, backgroundColor: Brand.border, marginVertical: 12 },
+  divider: { height: 1, backgroundColor: c.border, marginVertical: 12 },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  date: { fontSize: 12.5, color: Brand.textMuted, fontWeight: '600' },
-  amount: { fontSize: 16, fontWeight: '800', color: Brand.success },
+  date: { fontSize: 12.5, color: c.textMuted, fontWeight: '600' },
+  amount: { fontSize: 16, fontWeight: '800', color: c.success },
   viewRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  viewText: { fontSize: 12.5, color: Brand.orange, fontWeight: '700' },
+  viewText: { fontSize: 12.5, color: c.orange, fontWeight: '700' },
   empty: { alignItems: 'center', marginTop: 70, gap: 6, paddingHorizontal: 30 },
-  emptyIcon: { height: 88, width: 88, borderRadius: 44, backgroundColor: Brand.navy50, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  emptyTitle: { fontSize: 17, fontWeight: '800', color: Brand.text },
-  emptySub: { fontSize: 13.5, color: Brand.textMuted, textAlign: 'center' },
-  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Brand.orange, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16 },
-  emptyBtnText: { color: Brand.white, fontSize: 14.5, fontWeight: '800' },
+  emptyIcon: { height: 88, width: 88, borderRadius: 44, backgroundColor: c.navy50, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyTitle: { fontSize: 17, fontWeight: '800', color: c.text },
+  emptySub: { fontSize: 13.5, color: c.textMuted, textAlign: 'center' },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.orange, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12, marginTop: 16 },
+  emptyBtnText: { color: c.white, fontSize: 14.5, fontWeight: '800' },
 });

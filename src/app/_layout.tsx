@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -20,8 +20,8 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { restoreSession, forceLogout, refreshMe } from '@/store/authSlice';
 import { setUnauthorizedHandler } from '@/lib/api';
 import { connectSocket, getSocket } from '@/lib/socket';
-import { Brand } from '@/lib/config';
-import { ThemeProvider, useTheme } from '@/lib/theme';
+
+import { ThemeProvider, useTheme, ThemePalettes, type ThemeColors } from '@/lib/theme';
 import { LOGO } from '@/lib/assets';
 import LiveNotificationBanner from '@/components/LiveNotificationBanner';
 import { ToastProvider } from '@/components/Toast';
@@ -29,6 +29,8 @@ import { LocationProvider } from '@/lib/locationContext';
 import { registerPushNotifications, setupNotificationListeners } from '@/lib/pushNotifications';
 
 function RootNavigator() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const dispatch = useAppDispatch();
   const router = useRouter();
   const segments = useSegments();
@@ -82,7 +84,7 @@ function RootNavigator() {
     return (
       <View style={styles.splash}>
         <Image source={LOGO} style={styles.splashLogo} resizeMode="contain" />
-        <ActivityIndicator color={Brand.orange} style={{ marginTop: 20 }} />
+        <ActivityIndicator color={colors.orange} style={{ marginTop: 20 }} />
       </View>
     );
   }
@@ -116,10 +118,12 @@ export default function RootLayout() {
   applyGlobalFont();
 
   if (!fontsLoaded) {
+    // This splash renders OUTSIDE <ThemeProvider>, so useTheme() isn't available yet.
+    // The navy brand splash is identical in both themes, so a static palette is correct.
     return (
-      <View style={styles.splash}>
-        <Image source={LOGO} style={styles.splashLogo} resizeMode="contain" />
-        <ActivityIndicator color={Brand.orange} style={{ marginTop: 20 }} />
+      <View style={splashStyles.splash}>
+        <Image source={LOGO} style={splashStyles.splashLogo} resizeMode="contain" />
+        <ActivityIndicator color={ThemePalettes.light.orange} style={{ marginTop: 20 }} />
       </View>
     );
   }
@@ -141,12 +145,16 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  splash: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Brand.navy,
-  },
-  splashLogo: { width: 190, height: 66 },
-});
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    splash: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.navy,
+    },
+    splashLogo: { width: 190, height: 66 },
+  });
+
+/** Pre-provider splash (fonts still loading) — the brand navy is the same in both themes. */
+const splashStyles = createStyles(ThemePalettes.light);

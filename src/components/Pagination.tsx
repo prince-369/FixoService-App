@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Brand } from '@/lib/config';
+import { useTheme, type ThemeColors } from '@/lib/theme';
+
 
 interface PaginationProps {
   currentPage: number;
@@ -9,6 +11,10 @@ interface PaginationProps {
 }
 
 export default function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+  // Hooks must run before the early return below (Rules of Hooks).
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (totalPages <= 1) return null;
 
   return (
@@ -19,7 +25,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         disabled={currentPage === 1}
         activeOpacity={0.8}
       >
-        <Ionicons name="chevron-back" size={14} color={currentPage === 1 ? Brand.textLight : Brand.text} />
+        <Ionicons name="chevron-back" size={14} color={currentPage === 1 ? colors.textLight : colors.text} />
         <Text style={[styles.btnText, currentPage === 1 && styles.btnTextDisabled]}>Previous</Text>
       </TouchableOpacity>
 
@@ -32,7 +38,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         activeOpacity={0.8}
       >
         <Text style={[styles.btnText, currentPage === totalPages && styles.btnTextDisabled]}>Next</Text>
-        <Ionicons name="chevron-forward" size={14} color={currentPage === totalPages ? Brand.textLight : Brand.text} />
+        <Ionicons name="chevron-forward" size={14} color={currentPage === totalPages ? colors.textLight : colors.text} />
       </TouchableOpacity>
     </View>
   );
@@ -47,11 +53,12 @@ export function getTotalPages<T>(items: T[], perPage = 7): number {
   return Math.max(1, Math.ceil(items.length / perPage));
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 16 },
-  btn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: Brand.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  btn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: c.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   btnDisabled: { opacity: 0.4 },
-  btnText: { fontSize: 12, fontWeight: '700', color: Brand.text },
-  btnTextDisabled: { color: Brand.textLight },
-  pageText: { fontSize: 11, fontWeight: '600', color: Brand.textMuted },
+  btnText: { fontSize: 12, fontWeight: '700', color: c.text },
+  btnTextDisabled: { color: c.textLight },
+  pageText: { fontSize: 11, fontWeight: '600', color: c.textMuted },
 });
