@@ -55,6 +55,17 @@ export interface ThemeColors {
   white: string;
   /** Colour for content placed on the orange accent. */
   onAccent: string;
+  /**
+   * Colour for content placed on a surface that is *always* white, regardless of
+   * theme — the Google sign-in button (Google's own brand guideline requires a
+   * white button), small white icon chips, and anything else built with a fixed
+   * `white` fill rather than the themed `card`/`surface`. `text` is the wrong
+   * choice for these: it is near-white in dark mode, which is legible against
+   * `card`/`surface` but invisible against a fill that never changes with the
+   * theme. Same value in both palettes on purpose, for the same reason `white`
+   * itself is.
+   */
+  onWhite: string;
   /** Scrim behind modals and the drawer. */
   scrim: string;
 }
@@ -86,6 +97,7 @@ const LIGHT: ThemeColors = {
   accentTeal: '#0e7490',
   white: '#ffffff',
   onAccent: '#ffffff',
+  onWhite: '#1f2937',
   scrim: 'rgba(15,28,63,0.55)',
 };
 
@@ -116,6 +128,7 @@ const DARK: ThemeColors = {
   accentTeal: '#67e8f9',
   white: '#ffffff',
   onAccent: '#ffffff',
+  onWhite: '#1f2937',
   scrim: 'rgba(0,0,0,0.62)',
 };
 

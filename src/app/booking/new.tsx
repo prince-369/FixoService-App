@@ -269,7 +269,14 @@ export default function NewBookingScreen() {
   };
 
   const submit = async () => {
-    if (!description.trim()) return Alert.alert('Required', 'Please describe the work needed.');
+    // A recorded voice note IS a description — the server already treats it as
+    // one (booking.controller.ts falls back to the voice transcript, or to
+    // "Voice note attached by customer", whenever the typed field is empty).
+    // Blocking here on typed text alone made attaching a voice note pointless:
+    // you would still have to type something anyway.
+    if (!description.trim() && !voiceUri) {
+      return Alert.alert('Required', 'Please describe the work — type it, use "Speak to type", or record a voice note.');
+    }
     if (!coords) return Alert.alert('Location needed', 'Tap "Use my current location" to set where the service is needed.');
     if (!address.trim()) return Alert.alert('Address needed', 'Please add an address.');
     // Block booking when no worker is available/online for this location.
@@ -372,7 +379,11 @@ export default function NewBookingScreen() {
               onPress={listening ? stopSpeech : startSpeech}
               activeOpacity={0.85}
             >
-              <Ionicons name={listening ? 'ellipse' : 'mic'} size={16} color={listening ? colors.white : colors.navy} />
+              {/* `colors.text`, not `colors.navy`, when idle — the button's own
+                  fill is `navy50`, and in dark theme `navy` and `navy50` are two
+                  near-identical dark grays, so the mic all but disappeared into
+                  its own button. `text` is the pairing this theme was built for. */}
+              <Ionicons name={listening ? 'ellipse' : 'mic'} size={16} color={listening ? colors.white : colors.text} />
               <Text style={[styles.voiceBtnText, listening && { color: colors.white }]}>
                 {listening ? 'Listening… tap to stop' : 'Speak to type'}
               </Text>
@@ -588,7 +599,9 @@ const createStyles = (c: ThemeColors) =>
   input: { backgroundColor: c.bg, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: c.text },
   textarea: { height: 110, textAlignVertical: 'top' },
   voiceBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy50, borderRadius: 14, paddingVertical: 13, marginTop: 10 },
-  voiceBtnActive: { backgroundColor: c.navy },
+  // `c.orange`, not `c.navy` — this button sits on `card` too, so the "actively
+  // listening" state suffered the same navy-equals-card collision in dark mode.
+  voiceBtnActive: { backgroundColor: c.orange },
   voiceBtnText: { color: c.text, fontWeight: '800', fontSize: 13.5 },
   recBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.orange50, borderRadius: 14, paddingVertical: 13, marginTop: 10 },
   recBtnActive: { backgroundColor: c.dangerBg },
@@ -599,7 +612,11 @@ const createStyles = (c: ThemeColors) =>
   playBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: c.success, alignItems: 'center', justifyContent: 'center' },
   voiceAttachedText: { color: c.success, fontWeight: '800', fontSize: 13.5 },
   voicePlayHint: { color: c.success, fontWeight: '600', fontSize: 11, marginTop: 1 },
-  mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },
+  // `c.orange`, not `c.navy` — this button sits on `card` (styles.card above),
+  // and in dark theme `navy` is the exact same colour as `card`, so the button
+  // had no visible fill: just white icon + text floating with no button under
+  // them. Orange is this screen's own primary-action colour elsewhere.
+  mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.orange, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },
   mapBtnText: { color: c.white, fontWeight: '800', fontSize: 14 },
   locBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy50, borderRadius: 14, paddingVertical: 14, marginBottom: 10 },
   locBtnText: { color: c.text, fontWeight: '800', fontSize: 14 },
@@ -615,7 +632,11 @@ const createStyles = (c: ThemeColors) =>
   schedLabel: { fontSize: 11, fontWeight: '800', color: c.textMuted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 7 },
   chipScroll: { gap: 8, paddingRight: 8 },
   dchip: { borderWidth: 1, borderColor: c.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: c.bg },
-  dchipOn: { borderColor: c.navy, backgroundColor: c.navy },
+  // `c.orange`, not `c.navy` — this chip sits directly on `bg`/`card` surfaces,
+  // and in dark theme `navy` matches `card` exactly, so a "selected" date or
+  // time chip became indistinguishable from an unselected one — the one state
+  // this control exists to show. Orange is unambiguous in both themes.
+  dchipOn: { borderColor: c.orange, backgroundColor: c.orange },
   dchipText: { fontSize: 12.5, fontWeight: '700', color: c.text },
   dchipTextOn: { color: c.white },
   schedNote: { fontSize: 11, color: c.textMuted, lineHeight: 16, marginTop: 12 },
@@ -637,11 +658,16 @@ const createStyles = (c: ThemeColors) =>
   chipInactiveText: { fontSize: 12, fontWeight: '800', color: c.orangeDark },
   availHint: { marginTop: 8, fontSize: 11, color: c.textMuted, lineHeight: 15 },
   availEmptyTitle: { fontSize: 13.5, fontWeight: '800', color: c.warn },
-  waitlistBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy, borderRadius: 12, paddingVertical: 12, marginTop: 2 },
+  // `c.orange`, not `c.navy` — same collision as mapBtn above: navy equals card
+  // in dark theme, so this button had no visible fill against its card.
+  waitlistBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.orange, borderRadius: 12, paddingVertical: 12, marginTop: 2 },
   waitlistBtnText: { color: c.white, fontSize: 13.5, fontWeight: '800' },
   waitlistDone: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.successBg, borderRadius: 10, padding: 10 },
   waitlistDoneText: { flex: 1, fontSize: 11.5, fontWeight: '700', color: c.success },
-  slotActive: { backgroundColor: c.navy, borderColor: c.navy },
+  // `c.orange`, not `c.navy` — same collision as dchipOn: an available time slot
+  // sits on `card`/`bg`, and a "selected" slot became invisible against it in
+  // dark theme since navy equals card there.
+  slotActive: { backgroundColor: c.orange, borderColor: c.orange },
   slotText: { fontSize: 13.5, fontWeight: '700', color: c.textMuted },
   slotTextActive: { color: c.white },
   footer: { backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.border, paddingHorizontal: 20, paddingTop: 12 },

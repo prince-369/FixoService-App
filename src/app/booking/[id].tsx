@@ -61,7 +61,6 @@ export default function BookingDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [workerBusy, setWorkerBusy] = useState(false);
-  const [showPin, setShowPin] = useState(false);
   const [workerLoc, setWorkerLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [negotiatingBidId, setNegotiatingBidId] = useState<string | null>(null);
   const [counterAmount, setCounterAmount] = useState('');
@@ -209,17 +208,6 @@ export default function BookingDetailScreen() {
     } finally { setBusy(false); }
   };
 
-  const revealCode = async () => {
-    setBusy(true);
-    try {
-      const res = await api.post(`/customer/bookings/${id}/reveal-completion-code`);
-      const pin = res.data.completionCode || res.data.pin;
-      setBooking((b) => (b ? { ...b, completionPin: pin } : b));
-      setShowPin(true);
-    } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not reveal code'));
-    } finally { setBusy(false); }
-  };
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={colors.orange} /></View>;
@@ -459,34 +447,41 @@ export default function BookingDetailScreen() {
           </View>
         ) : null}
 
-        {/* Completion code (payment done) — only after the worker requests it */}
-        {['payment_done', 'in_progress'].includes(booking.status) ? (
+        {/* Completion code — visible from the moment payment succeeds. The worker
+            never receives this code from the server, so knowing it is the proof that
+            the customer chose to hand it over. */}
+        {['payment_done', 'in_progress'].includes(booking.status) && booking.completionPin ? (
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <Ionicons name="key-outline" size={18} color={colors.text} />
-              <Text style={styles.cardTitle}>Completion Code</Text>
+              <Text style={styles.cardTitle}>Your Completion Code</Text>
             </View>
+
+            <Text style={styles.codeHint}>
+              Give this code to your worker only after the job is fully done.
+            </Text>
+
+            <View style={styles.pinBox}>
+              <Text style={styles.pinText}>{booking.completionPin}</Text>
+            </View>
+
+            <View style={styles.warnBox}>
+              <Text style={styles.warnTitle}>Do not share this code in advance.</Text>
+              <Text style={styles.warnText}>
+                Sharing it before the work is finished lets the job be closed and the
+                payment released early.
+              </Text>
+              <Text style={styles.warnText}>
+                यह कोड काम पूरा होने के बाद ही दें।
+              </Text>
+            </View>
+
             {booking.completionRequestedByWorkerAt ? (
-              <>
-                <Text style={styles.codeHint}>The worker has requested the completion code. Share it ONLY after the job is fully done.</Text>
-                {showPin && booking.completionPin ? (
-                  <View style={styles.pinBox}>
-                    <Text style={styles.pinLabel}>Your completion code</Text>
-                    <Text style={styles.pinText}>{booking.completionPin}</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity style={styles.revealBtn} onPress={revealCode} disabled={busy} activeOpacity={0.9}>
-                    <Ionicons name="eye-outline" size={18} color={colors.text} />
-                    <Text style={styles.revealT}>Reveal Completion Code</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            ) : (
               <View style={styles.waitRow}>
-                <Ionicons name="time-outline" size={18} color={colors.textMuted} />
-                <Text style={styles.waitText}>The completion code will appear here once the worker marks the job done and requests it.</Text>
+                <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
+                <Text style={styles.waitText}>Your worker has marked the job as done.</Text>
               </View>
-            )}
+            ) : null}
           </View>
         ) : null}
 
@@ -609,7 +604,10 @@ const createStyles = (c: ThemeColors) =>
   busyTitle: { fontSize: 13.5, fontWeight: '800', color: c.warn },
   busyText: { fontSize: 12, color: c.warn, marginTop: 4, lineHeight: 18 },
   workerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  wAvatar: { height: 48, width: 48, borderRadius: 24, backgroundColor: c.navy, alignItems: 'center', justifyContent: 'center' },
+  // `c.navyLight`, not `c.navy` — this avatar sits on `card`, and in dark theme
+  // `navy` equals `card`, so the circle had no visible ring: just the worker's
+  // initial floating with nothing behind it. Same fix as edit-profile.tsx.
+  wAvatar: { height: 48, width: 48, borderRadius: 24, backgroundColor: c.navyLight, alignItems: 'center', justifyContent: 'center' },
   wAvatarT: { color: c.white, fontWeight: '800', fontSize: 19 },
   wName: { fontSize: 15.5, fontWeight: '800', color: c.text },
   wPhone: { fontSize: 13, color: c.textMuted, marginTop: 2 },
@@ -645,10 +643,17 @@ const createStyles = (c: ThemeColors) =>
   payAmountLabel: { fontSize: 12, color: c.textMuted, fontWeight: '600' },
   payAmount: { fontSize: 28, fontWeight: '900', color: c.success, marginTop: 2 },
   payOnlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.orange, borderRadius: 14, paddingVertical: 15, marginBottom: 10 },
-  payCashBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.card, borderWidth: 1.5, borderColor: c.navy, borderRadius: 14, paddingVertical: 15 },
+  // `c.border`, not `c.navy` — this button's own fill IS `c.card`, and in dark
+  // theme `navy` equals `card` too, so its outline vanished into its own fill,
+  // leaving a button with no visible edge at all. `border` is the token this
+  // theme actually designed to contrast against `card`.
+  payCashBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.card, borderWidth: 1.5, borderColor: c.border, borderRadius: 14, paddingVertical: 15 },
   payCashT: { color: c.white, fontSize: 14.5, fontWeight: '800' },
   payCashTNavy: { color: c.text, fontSize: 14.5, fontWeight: '800' },
   codeHint: { fontSize: 12.5, color: c.textMuted, marginBottom: 14, lineHeight: 18 },
+  warnBox: { marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: '#FDE68A', backgroundColor: '#FFFBEB', padding: 12, gap: 4 },
+  warnTitle: { color: '#92400E', fontSize: 12, fontWeight: '800' },
+  warnText: { color: '#B45309', fontSize: 11, lineHeight: 16 },
   revealBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.navy50, borderRadius: 14, paddingVertical: 14 },
   revealT: { color: c.text, fontSize: 14, fontWeight: '800' },
   pinBox: { backgroundColor: c.navy, borderRadius: 16, paddingVertical: 20, alignItems: 'center' },

@@ -103,7 +103,15 @@ export default function HomeScreen() {
             <Ionicons name="menu" size={25} color={colors.text} />
           </TouchableOpacity>
 
-          <Image source={LOGO} style={styles.logo} contentFit="contain" />
+          {/* Absolutely positioned and centred on the header's own width, not on
+              the gap between the hamburger and the right-side icon group —
+              `justifyContent: 'space-between'` centred the logo relative to
+              those two siblings, and the right group (theme toggle + bell +
+              avatar) is visibly wider than the single hamburger on the left, so
+              the logo sat off-centre, biased toward the narrower side. */}
+          <View style={styles.logoWrap} pointerEvents="none">
+            <Image source={LOGO} style={styles.logo} contentFit="contain" />
+          </View>
 
           <View style={styles.headerRight}>
             <ThemeToggle size={22} />
@@ -278,9 +286,15 @@ const createStyles = (c: ThemeColors) =>
       justifyContent: 'space-between',
       paddingHorizontal: 8,
       height: 54,
+      // The positioning context for `logoWrap` below.
+      position: 'relative',
     },
     headerBtn: { padding: 8 },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    // Spans the header's full width and centres its content within THAT — so
+    // the logo is centred on the header itself, unaffected by how wide either
+    // side group happens to be.
+    logoWrap: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
     logo: { width: 96, height: 30 },
     bellBadge: {
       position: 'absolute',

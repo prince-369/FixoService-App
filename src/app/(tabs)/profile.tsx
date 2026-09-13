@@ -118,7 +118,7 @@ export default function ProfileScreen() {
           <MenuRow icon="shield-checkmark-outline" label="Privacy Policy" color="#6366f1" onPress={() => router.push({ pathname: '/legal', params: { type: 'privacy' } })} />
           <MenuRow icon="document-text-outline" label="Terms of Service" color="#6366f1" onPress={() => router.push({ pathname: '/legal', params: { type: 'terms' } })} />
           <MenuRow icon="information-circle-outline" label="About Fixo" color={colors.textMuted}
-            onPress={() => Alert.alert('About Fixo', 'Fixo connects you with trusted, verified local professionals for home services. Version 1.0.0')} last />
+            onPress={() => router.push('/about')} last />
         </View>
 
         {/* Logout */}

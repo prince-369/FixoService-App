@@ -106,7 +106,9 @@ export default function LocationPickerScreen() {
             onSubmitEditing={runSearch}
             returnKeyType="search"
           />
-          {searching ? <ActivityIndicator size="small" color={colors.text} /> : query ? (
+          {/* `onWhite`, not `text` — this whole bar (searchWrap) is always white,
+              and `text` turns near-white in dark mode. */}
+          {searching ? <ActivityIndicator size="small" color={colors.onWhite} /> : query ? (
             <TouchableOpacity onPress={runSearch}><Text style={styles.goText}>Go</Text></TouchableOpacity>
           ) : null}
         </View>
@@ -137,7 +139,8 @@ export default function LocationPickerScreen() {
           style={{ flex: 1 }}
         />
         <TouchableOpacity style={styles.currentBtn} onPress={useCurrent}>
-          <Ionicons name="locate" size={20} color={colors.text} />
+          {/* `onWhite`, not `text` — `currentBtn` below is always a white circle. */}
+          <Ionicons name="locate" size={20} color={colors.onWhite} />
         </TouchableOpacity>
       </View>
 
@@ -164,8 +167,10 @@ const createStyles = (c: ThemeColors) =>
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   topTitle: { flex: 1, color: c.white, fontSize: 17, fontWeight: '800', textAlign: 'center' },
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.white, borderRadius: 12, marginHorizontal: 16, marginTop: 6, paddingHorizontal: 14 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14.5, color: c.text },
-  goText: { color: c.text, fontWeight: '800', fontSize: 14 },
+  // `c.onWhite`, not `c.text` — `searchWrap` above is always white, and `c.text`
+  // turns near-white in dark mode: typed text and the "Go" label both vanished.
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14.5, color: c.onWhite },
+  goText: { color: c.onWhite, fontWeight: '800', fontSize: 14 },
   resultsBox: { backgroundColor: c.card, maxHeight: 230, borderBottomWidth: 1, borderBottomColor: c.border },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: c.border },
   resultText: { flex: 1, fontSize: 13.5, color: c.text },

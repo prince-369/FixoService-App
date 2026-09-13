@@ -191,7 +191,7 @@ export default function HomeStory() {
           onPress={() => Linking.openURL('https://fixoworker.vercel.app')}
         >
           <Text style={s.proBtnT}>Join as a professional</Text>
-          <Ionicons name="arrow-forward" size={14} color={colors.text} />
+          <Ionicons name="arrow-forward" size={14} color={colors.onWhite} />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -263,7 +263,10 @@ const createStyles = (c: ThemeColors) =>
     listD: { marginTop: 2, fontSize: 12.5, lineHeight: 18.5, color: c.textMuted },
 
     proBtn: { marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: c.white, borderRadius: 12, paddingVertical: 13 },
-    proBtnT: { fontSize: 13.5, fontWeight: '800', color: c.text },
+    // `c.onWhite`, not `c.text` — this pill's fill is always white regardless of
+    // theme, and `c.text` turns near-white in dark mode, making the label
+    // invisible against it.
+    proBtnT: { fontSize: 13.5, fontWeight: '800', color: c.onWhite },
 
     trustWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
     trust: { flexGrow: 1, flexBasis: '46%', backgroundColor: c.card, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center' },

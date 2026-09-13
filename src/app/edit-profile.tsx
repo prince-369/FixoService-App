@@ -134,7 +134,11 @@ const createStyles = (c: ThemeColors) =>
   topTitle: { flex: 1, color: c.white, fontSize: 18, fontWeight: '800', textAlign: 'center' },
   scroll: { padding: 16, paddingBottom: 30 },
   avatarCard: { alignItems: 'center', backgroundColor: c.card, borderRadius: 20, borderWidth: 1, borderColor: c.border, paddingVertical: 22, marginBottom: 16, shadowColor: '#0f1c3f', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  avatarWrap: { height: 100, width: 100, borderRadius: 50, backgroundColor: c.navy, alignItems: 'center', justifyContent: 'center' },
+  // `c.navyLight`, not `c.navy` — in dark theme `navy` is the exact colour of
+  // `avatarCard` below (both a near-black surface tone), so the circle had no
+  // visible edge: just the initial letter and camera badge floating with no
+  // ring around them. `navyLight` is a step lighter and reads clearly against it.
+  avatarWrap: { height: 100, width: 100, borderRadius: 50, backgroundColor: c.navyLight, alignItems: 'center', justifyContent: 'center' },
   avatarImg: { height: 100, width: 100, borderRadius: 50 },
   avatarText: { color: c.white, fontSize: 40, fontWeight: '800' },
   cameraBadge: { position: 'absolute', bottom: 0, right: 0, height: 32, width: 32, borderRadius: 16, backgroundColor: c.orange, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: c.card },

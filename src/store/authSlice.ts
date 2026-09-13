@@ -1,6 +1,13 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import api, { getApiError, setAccessToken } from '@/lib/api';
-import { saveToken, loadToken, clearToken } from '@/lib/storage';
+import api, {
+  getApiError,
+  setAccessToken,
+  refreshAccessToken,
+  clearSession,
+  isDefinitiveAuthFailure,
+  primeDeviceId,
+} from '@/lib/api';
+import { saveRefreshToken, takeLegacyAccessToken } from '@/lib/storage';
 
 export interface CustomerUser {
   _id: string;
@@ -23,7 +30,14 @@ interface AuthState {
   block: BlockInfo | null;
   isLoading: boolean;
   error: string | null;
+  /** True once a restore has been attempted — the app gate waits on this. */
   hydrated: boolean;
+  /**
+   * The restore failed because the server was unreachable, NOT because the session
+   * is invalid. Credentials are kept and the UI can offer a retry (§37).
+   */
+  restoreNetworkError: boolean;
+  sessionExpiredMessage: string | null;
 }
 
 const initialState: AuthState = {
@@ -33,6 +47,8 @@ const initialState: AuthState = {
   isLoading: false,
   error: null,
   hydrated: false,
+  restoreNetworkError: false,
+  sessionExpiredMessage: null,
 };
 
 /**
@@ -132,25 +148,78 @@ export const completeGoogleCustomer = createAsyncThunk(
   }
 );
 
-// On app launch: restore the saved token and validate it via /auth/me.
+/**
+ * Restores the session when the app launches (including a cold start after the app
+ * was killed).
+ *
+ * This is the fix for "log in again after every restart": previously the app stored
+ * the ACCESS token and gave up the moment it expired, because there was no refresh
+ * step at all. Now the long-lived refresh token comes out of the keychain and is
+ * exchanged for a fresh access token.
+ */
 export const restoreSession = createAsyncThunk('auth/restore', async (_, { rejectWithValue }) => {
-  const token = await loadToken();
-  if (!token) return rejectWithValue('no_token');
-  setAccessToken(token);
+  await primeDeviceId();
+
   try {
+    // One-time migration for installs upgraded from the previous version, which
+    // persisted an access token instead of a refresh token. If it is still valid it
+    // buys a proper rotating session; if not, the user signs in once and never again.
+    const legacyAccessToken = await takeLegacyAccessToken();
+    if (legacyAccessToken) {
+      setAccessToken(legacyAccessToken);
+      try {
+        const me = await api.get('/auth/me');
+        // Trade the still-valid legacy access token for a real rotating session.
+        // The refresh token comes back in the body (native transport) and the api
+        // client's response handling is bypassed here deliberately: a failure just
+        // means the user signs in once more, never a crash.
+        const upgraded = await api.post('/auth/session').catch(() => null);
+        if (upgraded?.data?.refreshToken) await saveRefreshToken(upgraded.data.refreshToken);
+        return {
+          user: me.data.user,
+          token: legacyAccessToken,
+          block: me.data.block as BlockInfo | undefined,
+        };
+      } catch {
+        setAccessToken(null);
+        // Fall through to the normal refresh path.
+      }
+    }
+
+    const token = await refreshAccessToken();
     const res = await api.get('/auth/me');
     return { user: res.data.user, token, block: res.data.block as BlockInfo | undefined };
-  } catch {
-    await clearToken();
-    setAccessToken(null);
-    return rejectWithValue('invalid_token');
+  } catch (err: unknown) {
+    const definitive = isDefinitiveAuthFailure(err);
+    if (definitive) await clearSession();
+    return rejectWithValue({
+      message: definitive
+        ? 'Your session has expired. Please sign in again.'
+        : 'Could not reach the server. Check your connection.',
+      networkError: !definitive,
+    });
   }
 });
 
+/**
+ * Logout revokes the AuthSession server-side, so the stored refresh token cannot
+ * restore anything afterwards. Local credentials are cleared either way, so a
+ * failed network call can never leave the user stuck signed in.
+ */
 export const logout = createAsyncThunk('auth/logout', async () => {
-  try { await api.post('/auth/logout'); } catch { /* ignore */ }
-  setAccessToken(null);
-  await clearToken();
+  try { await api.post('/auth/logout'); } catch { /* best effort */ }
+  await clearSession();
+});
+
+/** Signs out every device for this account (§21). */
+export const logoutAllDevices = createAsyncThunk('auth/logoutAll', async (_, { rejectWithValue }) => {
+  try {
+    await api.post('/auth/logout-all');
+    await clearSession();
+    return true;
+  } catch (err: unknown) {
+    return rejectWithValue(getApiError(err, 'Could not sign out other devices'));
+  }
 });
 
 const handleAuthSuccess = (state: AuthState, payload: any) => {
@@ -161,8 +230,14 @@ const handleAuthSuccess = (state: AuthState, payload: any) => {
   state.error = null;
   if (token) {
     setAccessToken(token);
-    void saveToken(token);
   }
+  // Native logins receive the refresh token in the body (no cookie jar). It is the
+  // ONLY credential persisted — the access token stays in memory.
+  if (payload.refreshToken) {
+    void saveRefreshToken(payload.refreshToken);
+  }
+  state.restoreNetworkError = false;
+  state.sessionExpiredMessage = null;
 };
 
 const authSlice = createSlice({
@@ -176,9 +251,11 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       state.block = null;
-      setAccessToken(null);
-      void clearToken();
+      state.restoreNetworkError = false;
+      state.sessionExpiredMessage = 'Your session has expired. Please sign in again.';
+      void clearSession();
     },
+    clearSessionExpired: (state) => { state.sessionExpiredMessage = null; },
   },
   extraReducers: (builder) => {
     builder
@@ -203,22 +280,36 @@ const authSlice = createSlice({
       .addCase(completeGoogleCustomer.pending, (s) => { s.isLoading = true; s.error = null; })
       .addCase(completeGoogleCustomer.fulfilled, (s, a) => handleAuthSuccess(s, a.payload))
       .addCase(completeGoogleCustomer.rejected, (s, a) => { s.isLoading = false; s.error = a.payload as string; })
-      .addCase(restoreSession.pending, (s) => { s.isLoading = true; })
+      .addCase(restoreSession.pending, (s) => { s.isLoading = true; s.restoreNetworkError = false; })
       .addCase(restoreSession.fulfilled, (s, a) => {
         s.user = a.payload.user;
         s.token = a.payload.token;
         s.block = a.payload.block?.isBlocked ? a.payload.block : null;
         s.isLoading = false;
         s.hydrated = true;
+        s.restoreNetworkError = false;
+        s.sessionExpiredMessage = null;
       })
-      .addCase(restoreSession.rejected, (s) => { s.isLoading = false; s.hydrated = true; })
+      .addCase(restoreSession.rejected, (s, a) => {
+        const payload = a.payload as { networkError?: boolean } | undefined;
+        s.isLoading = false;
+        s.hydrated = true;
+        // On a network failure the stored refresh token is intentionally kept, so
+        // the next launch (or a retry) can still restore the session.
+        s.restoreNetworkError = !!payload?.networkError;
+      })
       .addCase(refreshMe.fulfilled, (s, a) => {
         if (a.payload.user) s.user = a.payload.user;
         s.block = a.payload.block?.isBlocked ? a.payload.block : null;
       })
-      .addCase(logout.fulfilled, (s) => { s.user = null; s.token = null; s.block = null; });
+      .addCase(logout.fulfilled, (s) => {
+        s.user = null; s.token = null; s.block = null; s.sessionExpiredMessage = null;
+      })
+      .addCase(logoutAllDevices.fulfilled, (s) => {
+        s.user = null; s.token = null; s.block = null; s.sessionExpiredMessage = null;
+      });
   },
 });
 
-export const { clearError, setUser, setBlock, forceLogout } = authSlice.actions;
+export const { clearError, setUser, setBlock, forceLogout, clearSessionExpired } = authSlice.actions;
 export default authSlice.reducer;

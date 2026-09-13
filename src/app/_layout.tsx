@@ -34,7 +34,7 @@ function RootNavigator() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const segments = useSegments();
-  const { token, hydrated, block, user } = useAppSelector((s) => s.auth);
+  const { token, hydrated, restoreNetworkError, block, user } = useAppSelector((s) => s.auth);
 
   // Restore the saved session once on launch.
   useEffect(() => {
@@ -69,6 +69,10 @@ function RootNavigator() {
   // Auth + block gate.
   useEffect(() => {
     if (!hydrated) return;
+    // The restore failed because the server was unreachable, not because the session
+    // ended. The stored refresh token is still good, so hold position rather than
+    // sending the user to a login screen they don't need (§37).
+    if (restoreNetworkError) return;
     const inAuthGroup = segments[0] === '(auth)';
     const onBlocked = segments[0] === 'blocked';
     if (!token && !inAuthGroup) {
@@ -78,7 +82,7 @@ function RootNavigator() {
     } else if (token && !block?.isBlocked && (inAuthGroup || onBlocked)) {
       router.replace('/(tabs)');
     }
-  }, [hydrated, token, block?.isBlocked, segments, router]);
+  }, [hydrated, restoreNetworkError, token, block?.isBlocked, segments, router]);
 
   if (!hydrated) {
     return (

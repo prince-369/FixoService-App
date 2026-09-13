@@ -279,7 +279,9 @@ const createStyles = (c: ThemeColors) =>
   mismatch: { color: c.danger, fontSize: 12, marginTop: 6 },
   errorBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.dangerBg, borderRadius: 10, padding: 10, marginTop: 14 },
   errorText: { color: c.danger, fontSize: 12.5, flex: 1 },
-  primaryBtn: { backgroundColor: c.navy, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 22 },
+  // `c.orange`, not `c.navy` — see login.tsx's primaryBtn for why: navy equals
+  // card in dark theme, so this button had no visible edge against its card.
+  primaryBtn: { backgroundColor: c.orange, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 22 },
   disabled: { opacity: 0.5 },
   primaryText: { color: c.white, fontSize: 15, fontWeight: '700' },
   linkRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 18, marginBottom: 4 },
@@ -290,5 +292,7 @@ const createStyles = (c: ThemeColors) =>
   dividerText: { color: c.textLight, fontSize: 12, marginHorizontal: 12 },
   googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingVertical: 14 },
   googleIcon: { width: 18, height: 18 },
-  googleText: { fontSize: 14, fontWeight: '700', color: c.text },
+  // `c.onWhite`, not `c.text` — this button's fill is always white; see
+  // login.tsx's googleText for why `c.text` breaks on a fixed-white surface.
+  googleText: { fontSize: 14, fontWeight: '700', color: c.onWhite },
 });

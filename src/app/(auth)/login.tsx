@@ -232,7 +232,10 @@ const createPwStyles = (c: ThemeColors) =>
   card: { backgroundColor: c.white, borderRadius: 24, padding: 24, width: '100%', maxWidth: 360, maxHeight: '85%' },
   content: { alignItems: 'center' },
   iconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 18, fontWeight: '800', color: c.text, marginBottom: 8 },
+  // `c.onWhite`, not `c.text` — this modal's card is always white (line above),
+  // in every theme, but `c.text` is near-white in dark mode — same collision as
+  // the Google button below.
+  title: { fontSize: 18, fontWeight: '800', color: c.onWhite, marginBottom: 8 },
   desc: { fontSize: 13, color: c.textMuted, textAlign: 'center', marginBottom: 16, lineHeight: 19 },
   emailHint: { fontSize: 11, color: c.textLight, marginBottom: 16 },
   primaryBtn: { backgroundColor: c.orange, borderRadius: 14, paddingVertical: 14, alignItems: 'center', width: '100%', marginTop: 8 },
@@ -344,7 +347,7 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.title}>Welcome back ðŸ‘‹</Text>
+              <Text style={styles.title}>Welcome back 👋</Text>
               <Text style={styles.subtitle}>Sign in to book services</Text>
 
               <Text style={styles.label}>Email or Phone</Text>
@@ -450,7 +453,12 @@ const createStyles = (c: ThemeColors) =>
   input: { flex: 1, paddingVertical: 14, fontSize: 15, color: c.text },
   errorBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.dangerBg, borderRadius: 10, padding: 10, marginTop: 14 },
   errorText: { color: c.danger, fontSize: 12.5, flex: 1 },
-  primaryBtn: { backgroundColor: c.navy, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
+  // `c.orange`, not `c.navy` — in dark theme `navy` is the exact colour of `card`
+  // (both a near-black surface tone), so a navy button on this card had no visible
+  // edge at all: just white text floating with no button under it. Orange is this
+  // app's own established primary-CTA colour (see "Book Now" / "Create Booking"),
+  // and it contrasts against every surface tone in both themes.
+  primaryBtn: { backgroundColor: c.orange, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
   disabled: { opacity: 0.5 },
   primaryText: { color: c.white, fontSize: 15, fontWeight: '700' },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 18 },
@@ -461,7 +469,10 @@ const createStyles = (c: ThemeColors) =>
     backgroundColor: c.white, borderWidth: 1, borderColor: c.border, borderRadius: 14, paddingVertical: 14,
   },
   googleIcon: { width: 18, height: 18 },
-  googleText: { color: c.text, fontSize: 14.5, fontWeight: '700' },
+  // `c.onWhite`, not `c.text` — this button's background is a fixed white
+  // (Google's own brand requirement), but `c.text` flips to near-white in dark
+  // mode, which made the label invisible against the always-white button.
+  googleText: { color: c.onWhite, fontSize: 14.5, fontWeight: '700' },
   forgotRow: { alignSelf: 'flex-end', marginTop: 10 },
   forgotText: { color: c.orange, fontSize: 12.5, fontWeight: '700' },
   linkRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },

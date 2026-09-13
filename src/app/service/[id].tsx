@@ -106,7 +106,9 @@ export default function ServiceDetailScreen() {
 
           <View style={styles.infoCard}>
             <View style={styles.infoIcon}>
-              <Ionicons name="shield-checkmark" size={20} color={colors.text} />
+              {/* `onWhite`, not `text` — this chip's fill is always white
+                  regardless of theme, and `text` turns near-white in dark mode. */}
+              <Ionicons name="shield-checkmark" size={20} color={colors.onWhite} />
             </View>
             <Text style={styles.infoText}>Verified professionals · Transparent pricing · Secure payment</Text>
           </View>
