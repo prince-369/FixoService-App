@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+  ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { registerCustomer, googleAuthCustomer, completeGoogleCustomer, clearError } from '@/store/authSlice';
-import { signInWithGoogle, statusCodes, GOOGLE_UNAVAILABLE } from '@/lib/googleAuth';
+import { signInWithGoogle, statusCodes, GOOGLE_UNAVAILABLE, getPendingGoogle, setPendingGoogle, type PendingGoogle } from '@/lib/googleAuth';
 import { LOGO } from '@/lib/assets';
 import { useTheme, type ThemeColors } from '@/lib/theme';
 
@@ -37,17 +36,45 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
+  const [google, setGoogle] = useState<PendingGoogle | null>(null);
+  const isGoogle = Boolean(google);
+
+  // Arrived here from the login screen's Google flow, or resuming after a
+  // reload — pick up the profile Google already gave us.
+  useEffect(() => {
+    const g = getPendingGoogle();
+    if (g) {
+      setGoogle(g);
+      setFullName((prev) => prev || g.fullName);
+      setEmail((prev) => prev || g.email);
+    }
+  }, []);
 
   const passwordStrong = isStrongPassword(password);
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
   // Mirrors the server rule (/^[6-9]\d{9}$/) so an invalid number is caught here
   // instead of costing a round-trip and a scary-looking API error.
   const phoneValid = /^[6-9]\d{9}$/.test(phone.trim());
-  const canSubmit = Boolean(fullName && email && phoneValid && passwordStrong && passwordsMatch);
+  const canSubmit = isGoogle
+    ? Boolean(fullName && phoneValid)
+    : Boolean(fullName && email && phoneValid && passwordStrong && passwordsMatch);
 
   const handleRegister = async () => {
     if (!canSubmit) return;
     dispatch(clearError());
+
+    if (isGoogle && google) {
+      const result = await dispatch(completeGoogleCustomer({
+        phone: phone.trim(), email: google.email, fullName: fullName.trim() || google.fullName,
+        googleId: google.googleId, profileImage: google.profileImage,
+      }));
+      if (completeGoogleCustomer.fulfilled.match(result) && (result.payload?.accessToken || result.payload?.token)) {
+        setPendingGoogle(null);
+        router.replace('/(tabs)');
+      }
+      return;
+    }
+
     const result = await dispatch(registerCustomer({ fullName, email, phone, password }));
     if (registerCustomer.fulfilled.match(result)) {
       router.replace('/(tabs)');
@@ -55,6 +82,8 @@ export default function RegisterScreen() {
   };
 
   const [googleLoading, setGoogleLoading] = useState(false);
+  // Account-first: Google auth runs immediately on tap. A brand-new Google
+  // account only needs phone (+ optionally name) after — never before.
   const handleGoogleSignUp = async () => {
     try {
       setGoogleLoading(true);
@@ -67,25 +96,19 @@ export default function RegisterScreen() {
       // Existing user → straight in.
       if (p?.accessToken || p?.token) { router.replace('/(tabs)'); return; }
 
-      // New Google user → server needs a phone number to create the account.
+      // New Google user → keep the profile and ask for phone below, not before.
       if (p?.needsPhone) {
         const gd = p.googleData || p;
-        const ph = phone.trim();
-        if (!ph) {
-          Alert.alert('Phone number needed', 'Apna phone number upar daalein, phir "Continue with Google" dobara dabayein — account ban jayega.');
-          return;
-        }
-        const done = await dispatch(completeGoogleCustomer({
-          phone: ph, email: gd.email, fullName: gd.fullName, googleId: gd.googleId, profileImage: gd.profileImage,
-        }));
-        if (completeGoogleCustomer.fulfilled.match(done) && (done.payload?.accessToken || done.payload?.token)) {
-          router.replace('/(tabs)');
-        }
+        const pendingGoogle: PendingGoogle = { googleId: gd.googleId, fullName: gd.fullName, email: gd.email, profileImage: gd.profileImage, credential: idToken };
+        setPendingGoogle(pendingGoogle);
+        setGoogle(pendingGoogle);
+        setFullName((prev) => prev || gd.fullName);
+        setEmail((prev) => prev || gd.email);
       }
     } catch (e: any) {
       if (e?.code === GOOGLE_UNAVAILABLE) {
         // Expected in Expo Go — not a bug, so don't dress it up as one.
-        Alert.alert('Not available here', `${e.message}\n\nUse email/phone sign up instead.`);
+        appAlert('Not available here', `${e.message}\n\nUse email/phone sign up instead.`);
       } else if (e?.code !== statusCodes.SIGN_IN_CANCELLED) {
         console.log('[Google Register] error:', e?.message);
       }
@@ -108,6 +131,25 @@ export default function RegisterScreen() {
             <View style={styles.card}>
               <Text style={styles.title}>Create your account</Text>
               <Text style={styles.subtitle}>Sign up to get started</Text>
+
+              {isGoogle ? (
+                <View style={styles.googleLinked}>
+                  <Ionicons name="logo-google" size={14} color="#047857" />
+                  <Text style={styles.googleLinkedT}>Google connected: {google?.email}</Text>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignUp} activeOpacity={0.9} disabled={googleLoading}>
+                    <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.googleIcon} />
+                    <Text style={styles.googleText}>{googleLoading ? 'Signing up...' : 'Sign up with Google'}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.dividerRow}>
+                    <View style={styles.divider} />
+                    <Text style={styles.dividerText}>or with details</Text>
+                    <View style={styles.divider} />
+                  </View>
+                </>
+              )}
 
               <Text style={styles.label}>Full Name</Text>
               <View style={styles.inputWrap}>
@@ -132,6 +174,7 @@ export default function RegisterScreen() {
                   keyboardType="email-address"
                   value={email}
                   onChangeText={setEmail}
+                  editable={!isGoogle}
                 />
               </View>
 
@@ -156,57 +199,61 @@ export default function RegisterScreen() {
                 </Text>
               )}
 
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.inputWrap}>
-                <Ionicons name="lock-closed-outline" size={18} color={colors.textLight} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Strong password"
-                  placeholderTextColor={colors.textLight}
-                  secureTextEntry={!showPass}
-                  maxLength={64}
-                  value={password}
-                  onChangeText={setPassword}
-                />
-                <TouchableOpacity onPress={() => setShowPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
+              {!isGoogle && (
+                <>
+                  <Text style={styles.label}>Password</Text>
+                  <View style={styles.inputWrap}>
+                    <Ionicons name="lock-closed-outline" size={18} color={colors.textLight} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Strong password"
+                      placeholderTextColor={colors.textLight}
+                      secureTextEntry={!showPass}
+                      maxLength={64}
+                      value={password}
+                      onChangeText={setPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                      <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Password strength indicator */}
-              {password.length > 0 && (
-                <View style={styles.rules}>
-                  {PASSWORD_RULES.map((r) => {
-                    const ok = r.test(password);
-                    return (
-                      <View key={r.label} style={styles.ruleRow}>
-                        <Text style={[styles.ruleIcon, ok && styles.ruleIconOk]}>{ok ? '✓' : '✗'}</Text>
-                        <Text style={[styles.ruleText, ok && styles.ruleTextOk]}>{r.label}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
+                  {/* Password strength indicator */}
+                  {password.length > 0 && (
+                    <View style={styles.rules}>
+                      {PASSWORD_RULES.map((r) => {
+                        const ok = r.test(password);
+                        return (
+                          <View key={r.label} style={styles.ruleRow}>
+                            <Text style={[styles.ruleIcon, ok && styles.ruleIconOk]}>{ok ? '✓' : '✗'}</Text>
+                            <Text style={[styles.ruleText, ok && styles.ruleTextOk]}>{r.label}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
 
-              <Text style={styles.label}>Confirm Password</Text>
-              <View style={styles.inputWrap}>
-                <Ionicons name="lock-closed-outline" size={18} color={colors.textLight} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Re-enter password"
-                  placeholderTextColor={colors.textLight}
-                  secureTextEntry={!showPass}
-                  maxLength={64}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                />
-                <TouchableOpacity onPress={() => setShowPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
+                  <Text style={styles.label}>Confirm Password</Text>
+                  <View style={styles.inputWrap}>
+                    <Ionicons name="lock-closed-outline" size={18} color={colors.textLight} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Re-enter password"
+                      placeholderTextColor={colors.textLight}
+                      secureTextEntry={!showPass}
+                      maxLength={64}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                    />
+                    <TouchableOpacity onPress={() => setShowPass((v) => !v)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                      <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
 
-              {confirmPassword.length > 0 && !passwordsMatch && (
-                <Text style={styles.mismatch}>Passwords do not match</Text>
+                  {confirmPassword.length > 0 && !passwordsMatch && (
+                    <Text style={styles.mismatch}>Passwords do not match</Text>
+                  )}
+                </>
               )}
 
               {error ? (
@@ -222,18 +269,7 @@ export default function RegisterScreen() {
                 disabled={!canSubmit || isLoading}
                 activeOpacity={0.9}
               >
-                {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryText}>Sign Up</Text>}
-              </TouchableOpacity>
-
-              <View style={styles.dividerRow}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.divider} />
-              </View>
-
-              <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignUp} activeOpacity={0.9} disabled={googleLoading}>
-                <Image source={{ uri: 'https://www.google.com/favicon.ico' }} style={styles.googleIcon} />
-                <Text style={styles.googleText}>{googleLoading ? 'Signing up...' : 'Sign up with Google'}</Text>
+                {isLoading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryText}>{isGoogle ? 'Create account with Google' : 'Sign Up'}</Text>}
               </TouchableOpacity>
 
             </View>
@@ -295,4 +331,6 @@ const createStyles = (c: ThemeColors) =>
   // `c.onWhite`, not `c.text` — this button's fill is always white; see
   // login.tsx's googleText for why `c.text` breaks on a fixed-white surface.
   googleText: { fontSize: 14, fontWeight: '700', color: c.onWhite },
+  googleLinked: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.successBg, borderRadius: 12, padding: 12, marginTop: 4, marginBottom: 4 },
+  googleLinkedT: { flex: 1, fontSize: 12.5, color: c.success, fontWeight: '700' },
 });

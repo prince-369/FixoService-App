@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +25,7 @@ export default function ProfileScreen() {
   const supportUnread = useSupportUnread();
 
   const confirmLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
+    appAlert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logout()) },
     ]);

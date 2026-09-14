@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -67,7 +68,7 @@ export default function LocationHeader() {
       await api.post('/customer/waitlist', { latitude: location.lat, longitude: location.lng, address: location.address });
       setWaitlistDone(true);
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not add you to the waitlist'));
+      appAlert('Failed', getApiError(e, 'Could not add you to the waitlist'));
     } finally {
       setJoining(false);
     }

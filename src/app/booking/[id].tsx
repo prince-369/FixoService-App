@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+  ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -136,15 +136,15 @@ export default function BookingDetailScreen() {
     setBusy(true);
     try {
       await api.post(`/booking/${id}/bids/${bidId}/accept`);
-      Alert.alert('Bid accepted', 'The worker will confirm and head to your location.');
+      appAlert('Bid accepted', 'The worker will confirm and head to your location.');
       load();
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not accept bid'));
+      appAlert('Failed', getApiError(e, 'Could not accept bid'));
     } finally { setBusy(false); }
   };
 
   const sendCounter = async (bidId: string) => {
-    if (!counterAmount.trim() || Number(counterAmount) <= 0) { Alert.alert('Enter a valid amount'); return; }
+    if (!counterAmount.trim() || Number(counterAmount) <= 0) { appAlert('Enter a valid amount'); return; }
     setBusy(true);
     try {
       await api.post(`/booking/${id}/bids/${bidId}/counter`, { amount: Number(counterAmount) });
@@ -152,33 +152,33 @@ export default function BookingDetailScreen() {
       setCounterAmount('');
       load();
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not send counter offer'));
+      appAlert('Failed', getApiError(e, 'Could not send counter offer'));
     } finally { setBusy(false); }
   };
 
   const doCancel = async () => {
-    if (!cancelReason.trim()) { Alert.alert('Reason required', 'Please tell us why you are cancelling.'); return; }
+    if (!cancelReason.trim()) { appAlert('Reason required', 'Please tell us why you are cancelling.'); return; }
     setBusy(true);
     try {
       await api.post(`/customer/bookings/${id}/cancel`, { reason: cancelReason.trim() });
       setShowCancel(false);
       setCancelReason('');
-      Alert.alert('Cancelled', 'Your booking has been cancelled.');
+      appAlert('Cancelled', 'Your booking has been cancelled.');
       load();
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not cancel booking'));
+      appAlert('Failed', getApiError(e, 'Could not cancel booking'));
     } finally { setBusy(false); }
   };
 
   const submitReview = async () => {
-    if (starRating < 1) { Alert.alert('Rate first', 'Please tap the stars to rate your worker.'); return; }
+    if (starRating < 1) { appAlert('Rate first', 'Please tap the stars to rate your worker.'); return; }
     setBusy(true);
     try {
       await api.post(`/customer/bookings/${id}/review`, { rating: starRating, feedback: feedback.trim() });
-      Alert.alert('Thank you! 🌟', 'Your rating has been submitted.');
+      appAlert('Thank you! 🌟', 'Your rating has been submitted.');
       load();
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not submit rating'));
+      appAlert('Failed', getApiError(e, 'Could not submit rating'));
     } finally { setBusy(false); }
   };
 
@@ -186,10 +186,10 @@ export default function BookingDetailScreen() {
     setBusy(true);
     try {
       await api.post(`/booking/${id}/payment`, { method: 'cash' });
-      Alert.alert('Confirmed', 'Cash payment selected. Pay after the work is done.');
+      appAlert('Confirmed', 'Cash payment selected. Pay after the work is done.');
       load();
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not confirm'));
+      appAlert('Failed', getApiError(e, 'Could not confirm'));
     } finally { setBusy(false); }
   };
 
@@ -201,10 +201,10 @@ export default function BookingDetailScreen() {
       if (order?.id) {
         router.push({ pathname: '/payment', params: { bookingId: String(id), orderId: order.id, amount: String(order.amount) } });
       } else {
-        Alert.alert('Error', 'Could not start online payment.');
+        appAlert('Error', 'Could not start online payment.');
       }
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not start payment'));
+      appAlert('Failed', getApiError(e, 'Could not start payment'));
     } finally { setBusy(false); }
   };
 

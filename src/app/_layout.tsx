@@ -25,6 +25,7 @@ import { ThemeProvider, useTheme, ThemePalettes, type ThemeColors } from '@/lib/
 import { LOGO } from '@/lib/assets';
 import LiveNotificationBanner from '@/components/LiveNotificationBanner';
 import { ToastProvider } from '@/components/Toast';
+import { AppAlertProvider } from '@/components/AppAlert';
 import { LocationProvider } from '@/lib/locationContext';
 import { registerPushNotifications, setupNotificationListeners } from '@/lib/pushNotifications';
 
@@ -141,6 +142,7 @@ export default function RootLayout() {
               <ThemedStatusBar />
               <RootNavigator />
               <ToastProvider />
+              <AppAlertProvider />
             </LocationProvider>
           </ThemeProvider>
         </Provider>

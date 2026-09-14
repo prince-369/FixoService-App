@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -173,9 +172,9 @@ export default function NewBookingScreen() {
     try {
       await api.post('/customer/waitlist', { latitude: coords.lat, longitude: coords.lng, address: address.trim() });
       setWaitlistJoined(true);
-      Alert.alert('Thanks!', "We'll notify you the moment Fixo arrives in your area.");
+      appAlert('Thanks!', "We'll notify you the moment Fixo arrives in your area.");
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not submit right now. Please try again.'));
+      appAlert('Failed', getApiError(e, 'Could not submit right now. Please try again.'));
     } finally {
       setJoiningWaitlist(false);
     }
@@ -185,12 +184,12 @@ export default function NewBookingScreen() {
   const startRec = async () => {
     try {
       const { granted } = await requestRecordingPermissionsAsync();
-      if (!granted) { Alert.alert('Permission needed', 'Allow microphone access to record a voice note.'); return; }
+      if (!granted) { appAlert('Permission needed', 'Allow microphone access to record a voice note.'); return; }
       await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
       setRecording(true);
-    } catch { Alert.alert('Error', 'Could not start recording.'); }
+    } catch { appAlert('Error', 'Could not start recording.'); }
   };
 
   const stopRec = async () => {
@@ -204,13 +203,13 @@ export default function NewBookingScreen() {
   // ── Speak-to-type transcription (full in app build; guarded in Expo Go) ──
   const startSpeech = async () => {
     if (isExpoGo) {
-      Alert.alert('Voice typing', 'Speak-to-type works in the installed app. For now you can type, or record a voice note.');
+      appAlert('Voice typing', 'Speak-to-type works in the installed app. For now you can type, or record a voice note.');
       return;
     }
     try {
       const mod: any = await import('expo-speech-recognition');
       const perm = await mod.ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!perm.granted) { Alert.alert('Permission needed', 'Allow microphone & speech recognition.'); return; }
+      if (!perm.granted) { appAlert('Permission needed', 'Allow microphone & speech recognition.'); return; }
       speechBase.current = description ? description.trim() + ' ' : '';
       speechSubs.current.push(mod.ExpoSpeechRecognitionModule.addListener('result', (e: any) => {
         const t = e?.results?.[0]?.transcript;
@@ -219,7 +218,7 @@ export default function NewBookingScreen() {
       speechSubs.current.push(mod.ExpoSpeechRecognitionModule.addListener('end', () => setListening(false)));
       mod.ExpoSpeechRecognitionModule.start({ lang: 'en-IN', interimResults: true });
       setListening(true);
-    } catch { Alert.alert('Error', 'Voice typing is unavailable right now.'); }
+    } catch { appAlert('Error', 'Voice typing is unavailable right now.'); }
   };
 
   const stopSpeech = async () => {
@@ -234,11 +233,27 @@ export default function NewBookingScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Please allow location access to set your address.');
+        appAlert('Permission needed', 'Please allow location access to set your address.');
         return;
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude, longitude } = pos.coords;
+
+      // Fast path: a recent cached fix fills the address in immediately
+      // instead of leaving the field blank while a fresh GPS lock is acquired.
+      const last = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 }).catch(() => null);
+      if (last) setCoords({ lat: last.coords.latitude, lng: last.coords.longitude });
+
+      // Refine with a fresh fix, but never hang the UI on a slow/stuck GPS —
+      // an 8s timeout falls back to the last-known fix (if any).
+      const fresh = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+      ]);
+      const fix = fresh || last;
+      if (!fix) {
+        appAlert('Location timed out', 'Could not get your location in time. Enter address manually.');
+        return;
+      }
+      const { latitude, longitude } = fix.coords;
       setCoords({ lat: latitude, lng: longitude });
       try {
         const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
@@ -249,7 +264,7 @@ export default function NewBookingScreen() {
         }
       } catch { /* keep coords only */ }
     } catch {
-      Alert.alert('Location error', 'Could not get your location. Enter address manually.');
+      appAlert('Location error', 'Could not get your location. Enter address manually.');
     } finally {
       setLocating(false);
     }
@@ -275,13 +290,13 @@ export default function NewBookingScreen() {
     // Blocking here on typed text alone made attaching a voice note pointless:
     // you would still have to type something anyway.
     if (!description.trim() && !voiceUri) {
-      return Alert.alert('Required', 'Please describe the work — type it, use "Speak to type", or record a voice note.');
+      return appAlert('Required', 'Please describe the work — type it, use "Speak to type", or record a voice note.');
     }
-    if (!coords) return Alert.alert('Location needed', 'Tap "Use my current location" to set where the service is needed.');
-    if (!address.trim()) return Alert.alert('Address needed', 'Please add an address.');
+    if (!coords) return appAlert('Location needed', 'Tap "Use my current location" to set where the service is needed.');
+    if (!address.trim()) return appAlert('Address needed', 'Please add an address.');
     // Block booking when no worker is available/online for this location.
     if (availability && availability.active === 0) {
-      return Alert.alert(
+      return appAlert(
         'No worker available',
         availability.total > 0
           ? 'No worker is online near this location right now. Please try again in a little while.'
@@ -292,8 +307,8 @@ export default function NewBookingScreen() {
     let scheduledISO: string | undefined;
     if (scheduleMode === 'scheduled') {
       const sd = buildScheduledDate();
-      if (!sd) return Alert.alert('Pick a time', 'Please choose the date and time you want the work done.');
-      if (sd.getTime() < Date.now() + 5 * 60 * 1000) return Alert.alert('Invalid time', 'Please choose a time at least 5 minutes from now.');
+      if (!sd) return appAlert('Pick a time', 'Please choose the date and time you want the work done.');
+      if (sd.getTime() < Date.now() + 5 * 60 * 1000) return appAlert('Invalid time', 'Please choose a time at least 5 minutes from now.');
       scheduledISO = sd.toISOString();
     }
 
@@ -317,14 +332,14 @@ export default function NewBookingScreen() {
 
       const res = await api.post('/booking', form);
       const booking = res.data.booking;
-      Alert.alert('Booking created! 🎉', 'Workers near you will start sending bids.');
+      appAlert('Booking created! 🎉', 'Workers near you will start sending bids.');
       if (booking?._id) {
         router.replace(`/booking/${booking._id}`);
       } else {
         router.replace('/(tabs)/bookings');
       }
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not create booking'));
+      appAlert('Failed', getApiError(e, 'Could not create booking'));
     } finally {
       setSubmitting(false);
     }

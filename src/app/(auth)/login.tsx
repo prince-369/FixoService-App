@@ -1,8 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View, Modal,
-} from 'react-native';
+  ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginCustomer, googleAuthCustomer, clearError } from '@/store/authSlice';
-import { signInWithGoogle, statusCodes, GOOGLE_UNAVAILABLE } from '@/lib/googleAuth';
+import { signInWithGoogle, statusCodes, GOOGLE_UNAVAILABLE, setPendingGoogle, type PendingGoogle } from '@/lib/googleAuth';
 import { LOGO } from '@/lib/assets';
 import api, { getApiError } from '@/lib/api';
 import { useTheme, type ThemeColors } from '@/lib/theme';
@@ -290,28 +289,25 @@ export default function LoginScreen() {
         if (p?.accessToken || p?.token) {
           router.replace('/(tabs)');
         } else if (p?.needsPhone) {
-          // New Google account — send them to sign up (where they add a phone number).
-          Alert.alert(
-            'Naya account?',
-            'Aapka Google account abhi registered nahi hai. Sign up karke apna phone number add karein.',
-            [
-              { text: 'Sign up', onPress: () => router.replace('/(auth)/register') },
-              { text: 'Cancel', style: 'cancel' },
-            ],
-          );
+          // New Google account — carry the profile to register so it only asks
+          // for a phone number, not another Google sign-in.
+          const gd = p.googleData || p;
+          const pendingGoogle: PendingGoogle = { googleId: gd.googleId, fullName: gd.fullName, email: gd.email, profileImage: gd.profileImage, credential: idToken };
+          setPendingGoogle(pendingGoogle);
+          router.push('/(auth)/register');
         }
       } else {
         const err = res.payload as any;
         const msg = typeof err === 'string' ? err : err?.message || 'Google sign-in failed';
-        Alert.alert('Google Sign-In Failed', msg);
+        appAlert('Google Sign-In Failed', msg);
       }
     } catch (e: any) {
       if (e?.code === GOOGLE_UNAVAILABLE) {
         // Expected in Expo Go — not a bug, so don't dress it up as one.
-        Alert.alert('Not available here', `${e.message}\n\nUse email/phone login instead.`);
+        appAlert('Not available here', `${e.message}\n\nUse email/phone login instead.`);
       } else if (e?.code !== statusCodes.SIGN_IN_CANCELLED) {
         console.log('[Google] error:', e?.code, e?.message);
-        Alert.alert('Google Error', e?.message || 'Something went wrong');
+        appAlert('Google Error', e?.message || 'Something went wrong');
       }
     } finally {
       setGoogleLoading(false);

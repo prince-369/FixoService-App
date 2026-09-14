@@ -1,7 +1,7 @@
-import { useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
-  ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+  ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
@@ -11,7 +11,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { setPickedLocation, searchPlaces, reverseGeocode } from '@/lib/locationBridge';
 import { useTheme, type ThemeColors } from '@/lib/theme';
 
-const INIT = { lat: 28.6139, lng: 77.209 }; // default: Delhi
+const INIT = { lat: 26.8467, lng: 80.9462 }; // default: Lucknow — the only city Fixo serves
+const LOCATE_TIMEOUT_MS = 8000;
+
+// Never let a slow/stuck GPS fix hang the UI — resolve to null instead so the
+// caller can fall back to a last-known fix or give up cleanly.
+const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
+  Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
 
 const mapHtml = (lat: number, lng: number) => `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
@@ -42,6 +48,17 @@ export default function LocationPickerScreen() {
   const [results, setResults] = useState<{ lat: number; lng: number; label: string }[]>([]);
   const [searching, setSearching] = useState(false);
   const [busyAddr, setBusyAddr] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const webReady = useRef(false);
+  const pendingMove = useRef<{ lat: number; lng: number } | null>(null);
+
+  // The map's own JS (moveTo) only exists once the WebView has finished
+  // loading Leaflet — injecting before that silently does nothing, so queue
+  // any move that arrives first (e.g. an instant last-known-position fix).
+  const moveMapTo = (lat: number, lng: number) => {
+    if (webReady.current) webRef.current?.injectJavaScript(`moveTo(${lat}, ${lng}); true;`);
+    else pendingMove.current = { lat, lng };
+  };
 
   const onMapMessage = async (e: { nativeEvent: { data: string } }) => {
     try {
@@ -54,31 +71,72 @@ export default function LocationPickerScreen() {
     } catch { /* ignore */ }
   };
 
-  const runSearch = async () => {
-    if (!query.trim()) return;
+  const searchSeq = useRef(0);
+  const doSearch = async (q: string) => {
+    const seq = ++searchSeq.current;
     setSearching(true);
-    const res = await searchPlaces(query.trim());
-    setResults(res);
+    const res = await searchPlaces(q);
+    if (seq === searchSeq.current) setResults(res); // drop stale/out-of-order responses
     setSearching(false);
   };
+
+  const runSearch = () => { if (query.trim()) doSearch(query.trim()); };
+
+  // Live search-as-you-type, like Google's place search — no need to hit
+  // enter/Go first. Debounced so it doesn't fire on every keystroke.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setResults([]); return; }
+    const t = setTimeout(() => doSearch(q), 350);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const pickResult = (r: { lat: number; lng: number; label: string }) => {
     setResults([]);
     setQuery('');
     setCoords({ lat: r.lat, lng: r.lng });
     setAddress(r.label);
-    webRef.current?.injectJavaScript(`moveTo(${r.lat}, ${r.lng}); true;`);
+    moveMapTo(r.lat, r.lng);
   };
 
-  const useCurrent = async () => {
+  // silent=true is used for the automatic on-open attempt, so a denied
+  // permission or a cold GPS doesn't pop an alert the user never asked for —
+  // tapping the button explicitly still gets full feedback.
+  const useCurrent = async (silent = false) => {
+    setLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude, longitude } = pos.coords;
-      webRef.current?.injectJavaScript(`moveTo(${latitude}, ${longitude}); true;`);
-    } catch { /* ignore */ }
+      if (status !== 'granted') {
+        if (!silent) appAlert('Permission needed', 'Please allow location access to use your current location.');
+        return;
+      }
+
+      // Fast path: a recent cached fix moves the map immediately instead of
+      // leaving it on the Lucknow default while a fresh GPS lock is acquired.
+      const last = await Location.getLastKnownPositionAsync({ maxAge: 5 * 60 * 1000 }).catch(() => null);
+      if (last) moveMapTo(last.coords.latitude, last.coords.longitude);
+
+      // Refine with a fresh fix, but never hang the UI on a slow/stuck GPS —
+      // fall back to the last-known fix (if any) once the timeout hits.
+      const fresh = await withTimeout(
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        LOCATE_TIMEOUT_MS,
+      );
+      if (fresh) {
+        moveMapTo(fresh.coords.latitude, fresh.coords.longitude);
+      } else if (!last && !silent) {
+        appAlert('Location timed out', 'Could not get your location in time. Please search or tap on the map instead.');
+      }
+    } catch {
+      if (!silent) appAlert('Location error', 'Could not get your location. Please search or tap on the map instead.');
+    } finally {
+      setLocating(false);
+    }
   };
+
+  // Centre on the user automatically instead of always opening on the
+  // hardcoded Lucknow default.
+  useEffect(() => { useCurrent(true); }, []);
 
   const confirm = () => {
     setPickedLocation({ lat: coords.lat, lng: coords.lng, address: address || `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` });
@@ -136,11 +194,19 @@ export default function LocationPickerScreen() {
           originWhitelist={['*']}
           source={{ html: mapHtml(INIT.lat, INIT.lng) }}
           onMessage={onMapMessage}
+          onLoadEnd={() => {
+            webReady.current = true;
+            if (pendingMove.current) {
+              const { lat, lng } = pendingMove.current;
+              pendingMove.current = null;
+              webRef.current?.injectJavaScript(`moveTo(${lat}, ${lng}); true;`);
+            }
+          }}
           style={{ flex: 1 }}
         />
-        <TouchableOpacity style={styles.currentBtn} onPress={useCurrent}>
+        <TouchableOpacity style={styles.currentBtn} onPress={() => useCurrent(false)} disabled={locating}>
           {/* `onWhite`, not `text` — `currentBtn` below is always a white circle. */}
-          <Ionicons name="locate" size={20} color={colors.onWhite} />
+          {locating ? <ActivityIndicator size="small" color={colors.onWhite} /> : <Ionicons name="locate" size={20} color={colors.onWhite} />}
         </TouchableOpacity>
       </View>
 

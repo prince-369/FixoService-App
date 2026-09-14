@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -104,14 +105,14 @@ export default function SettingsScreen() {
       if (res.granted) {
         setStatus((s) => ({ ...s, [p.key]: true }));
       } else if (res.canAskAgain === false) {
-        Alert.alert('Permission blocked', `Please enable ${p.label} from your phone Settings.`, [
+        appAlert('Permission blocked', `Please enable ${p.label} from your phone Settings.`, [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Open Settings', onPress: () => Linking.openSettings() },
         ]);
       }
     } else {
       // Permissions can only be revoked from system settings.
-      Alert.alert('Manage permission', `To turn off ${p.label}, disable it in your phone Settings.`, [
+      appAlert('Manage permission', `To turn off ${p.label}, disable it in your phone Settings.`, [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Open Settings', onPress: () => Linking.openSettings() },
       ]);

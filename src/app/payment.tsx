@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,7 +61,7 @@ export default function PaymentScreen() {
       return;
     }
     if (data.event === 'error') {
-      Alert.alert('Payment error', 'Could not open payment. Please try again.');
+      appAlert('Payment error', 'Could not open payment. Please try again.');
       router.back();
       return;
     }
@@ -72,9 +73,9 @@ export default function PaymentScreen() {
           razorpay_order_id: data.razorpay_order_id,
           razorpay_signature: data.razorpay_signature,
         });
-        Alert.alert('Payment successful! 🎉', 'Your booking is confirmed.');
+        appAlert('Payment successful! 🎉', 'Your booking is confirmed.');
       } catch (err) {
-        Alert.alert('Verification pending', getApiError(err, 'Payment received — confirming shortly.'));
+        appAlert('Verification pending', getApiError(err, 'Payment received — confirming shortly.'));
       } finally {
         setVerifying(false);
         router.back();

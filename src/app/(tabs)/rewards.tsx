@@ -1,7 +1,7 @@
 import { useCallback, useState, useMemo } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert,
-} from 'react-native';
+  ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -59,7 +59,7 @@ export default function RewardsScreen() {
   const submitClaim = async () => {
     if (!claimM) return;
     if (!holderName.trim() || !bankName.trim() || !accNo.trim() || !ifsc.trim()) {
-      Alert.alert('Missing details', 'Please fill all bank fields.');
+      appAlert('Missing details', 'Please fill all bank fields.');
       return;
     }
     setSubmitting(true);
@@ -73,10 +73,10 @@ export default function RewardsScreen() {
       });
       setClaimM(null);
       setHolderName(''); setBankName(''); setAccNo(''); setIfsc('');
-      Alert.alert('Claim submitted! 🎉', 'Your reward will be transferred to your bank account within 24 hours.');
+      appAlert('Claim submitted! 🎉', 'Your reward will be transferred to your bank account within 24 hours.');
       load();
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not submit claim'));
+      appAlert('Failed', getApiError(e, 'Could not submit claim'));
     } finally {
       setSubmitting(false);
     }

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,37 +52,37 @@ export default function ChangePasswordScreen() {
   const handleChangePassword = async () => {
     setCurrentError('');
     if (!currentPwd) { setCurrentError('Current password required'); return; }
-    if (!newPwd) { Alert.alert('Error', 'New password required'); return; }
-    if (newPwd !== confirmPwd) { Alert.alert('Error', 'Passwords do not match'); return; }
-    if (strength.score < 4) { Alert.alert('Weak Password', 'Password must have 8+ chars, uppercase, lowercase, digit, special char'); return; }
+    if (!newPwd) { appAlert('Error', 'New password required'); return; }
+    if (newPwd !== confirmPwd) { appAlert('Error', 'Passwords do not match'); return; }
+    if (strength.score < 4) { appAlert('Weak Password', 'Password must have 8+ chars, uppercase, lowercase, digit, special char'); return; }
 
     setBusy(true);
     try {
       await api.post('/auth/change-password', { currentPassword: currentPwd, newPassword: newPwd });
-      Alert.alert('Success ✓', 'Password changed successfully!', [{ text: 'OK', onPress: () => router.back() }]);
+      appAlert('Success ✓', 'Password changed successfully!', [{ text: 'OK', onPress: () => router.back() }]);
     } catch (e: any) {
       const msg = e?.response?.data?.message || getApiError(e, 'Failed');
       if (msg.toLowerCase().includes('incorrect') || msg.toLowerCase().includes('wrong')) {
         setCurrentError(msg);
       } else {
-        Alert.alert('Failed', msg);
+        appAlert('Failed', msg);
       }
     } finally { setBusy(false); }
   };
 
   const sendForgotRequest = async () => {
-    if (!forgotInput.trim()) { Alert.alert('Required', 'Email ya phone number dalein'); return; }
+    if (!forgotInput.trim()) { appAlert('Required', 'Email ya phone number dalein'); return; }
     setForgotBusy(true);
     try {
       const res = await api.post('/auth/forgot-password', { identifier: forgotInput.trim(), role: 'customer' });
       if (res.data.method === 'phone') {
         setOtpSent(true);
-        Alert.alert('OTP Sent', 'Aapke phone pe OTP bhej diya hai');
+        appAlert('OTP Sent', 'Aapke phone pe OTP bhej diya hai');
       } else {
-        Alert.alert('Reset Link Sent', 'Aapke email pe reset link bhej diya hai. Email check karein.');
+        appAlert('Reset Link Sent', 'Aapke email pe reset link bhej diya hai. Email check karein.');
         setForgotMode(false);
       }
-    } catch (e) { Alert.alert('Failed', getApiError(e, 'Could not send reset request')); } finally { setForgotBusy(false); }
+    } catch (e) { appAlert('Failed', getApiError(e, 'Could not send reset request')); } finally { setForgotBusy(false); }
   };
 
   const verifyOtp = async () => {
@@ -90,18 +91,18 @@ export default function ChangePasswordScreen() {
     try {
       const res = await api.post('/auth/verify-otp', { phone: forgotInput.trim(), otp: otp.trim() });
       setResetToken(res.data.resetToken);
-      Alert.alert('OTP Verified', 'Ab naya password set karein');
-    } catch (e) { Alert.alert('Failed', getApiError(e, 'Invalid OTP')); } finally { setForgotBusy(false); }
+      appAlert('OTP Verified', 'Ab naya password set karein');
+    } catch (e) { appAlert('Failed', getApiError(e, 'Invalid OTP')); } finally { setForgotBusy(false); }
   };
 
   const doReset = async () => {
-    if (!resetPwd || resetPwd !== resetConfirm) { Alert.alert('Error', 'Passwords match nahi kar rahe'); return; }
-    if (getStrength(resetPwd).score < 4) { Alert.alert('Weak', 'Strong password use karein'); return; }
+    if (!resetPwd || resetPwd !== resetConfirm) { appAlert('Error', 'Passwords match nahi kar rahe'); return; }
+    if (getStrength(resetPwd).score < 4) { appAlert('Weak', 'Strong password use karein'); return; }
     setForgotBusy(true);
     try {
       await api.post('/auth/reset-password', { token: resetToken, password: resetPwd });
-      Alert.alert('Success ✓', 'Password reset ho gaya!', [{ text: 'OK', onPress: () => router.back() }]);
-    } catch (e) { Alert.alert('Failed', getApiError(e, 'Could not reset')); } finally { setForgotBusy(false); }
+      appAlert('Success ✓', 'Password reset ho gaya!', [{ text: 'OK', onPress: () => router.back() }]);
+    } catch (e) { appAlert('Failed', getApiError(e, 'Could not reset')); } finally { setForgotBusy(false); }
   };
 
   if (forgotMode) {

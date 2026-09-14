@@ -108,3 +108,18 @@ export const statusCodes = {
     return loadModule()?.statusCodes?.PLAY_SERVICES_NOT_AVAILABLE ?? 'PLAY_SERVICES_NOT_AVAILABLE';
   },
 };
+
+// Carries a new Google account's data from wherever the user first hit Google
+// sign-in (login screen) into the register screen, so account-first Google
+// sign-up works without asking for a phone number beforehand.
+export interface PendingGoogle {
+  googleId: string;
+  fullName: string;
+  email: string;
+  profileImage?: string;
+  credential: string;
+}
+
+let pending: PendingGoogle | null = null;
+export const setPendingGoogle = (p: PendingGoogle | null) => { pending = p; };
+export const getPendingGoogle = (): PendingGoogle | null => pending;

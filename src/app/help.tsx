@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform,
-  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+  ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -175,7 +174,7 @@ export default function HelpScreen() {
     try {
       const res = await api.get(`/customer/help-tickets/${id}`);
       if (res.data?.ticket) applyIncomingTicket(res.data.ticket);
-    } catch { Alert.alert('Error', 'Could not load ticket'); }
+    } catch { appAlert('Error', 'Could not load ticket'); }
   };
 
   // Load the seen markers once so the derived count is correct on first render.
@@ -210,19 +209,19 @@ export default function HelpScreen() {
       if (res.data?.ticket) applyIncomingTicket(res.data.ticket);
       setChatMsg('');
       setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 200);
-    } catch (e) { Alert.alert('Failed', getApiError(e, 'Could not send')); } finally { sendInFlight.current = false; setSendingMsg(false); }
+    } catch (e) { appAlert('Failed', getApiError(e, 'Could not send')); } finally { sendInFlight.current = false; setSendingMsg(false); }
   };
 
   const submitNewTicket = async () => {
-    if (!message.trim()) { Alert.alert('Required', 'Please describe your issue.'); return; }
+    if (!message.trim()) { appAlert('Required', 'Please describe your issue.'); return; }
     setSending(true);
     try {
       const res = await api.post('/customer/help-tickets', { category, message: message.trim() });
-      Alert.alert('Ticket created', res.data?.ticket?.ticketNumber ? `Ticket ${res.data.ticket.ticketNumber} created!` : 'Our team will respond soon.');
+      appAlert('Ticket created', res.data?.ticket?.ticketNumber ? `Ticket ${res.data.ticket.ticketNumber} created!` : 'Our team will respond soon.');
       setMessage('');
       setView('tickets');
       fetchTickets();
-    } catch (e) { Alert.alert('Failed', getApiError(e, 'Could not create ticket')); } finally { setSending(false); }
+    } catch (e) { appAlert('Failed', getApiError(e, 'Could not create ticket')); } finally { setSending(false); }
   };
 
   useFocusEffect(useCallback(() => { fetchTickets(); }, []));

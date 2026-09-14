@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { appAlert } from '@/components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -30,7 +29,7 @@ export default function EditProfileScreen() {
   const pickPhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission needed', 'Allow photo access to change your picture.');
+      appAlert('Permission needed', 'Allow photo access to change your picture.');
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
@@ -38,7 +37,7 @@ export default function EditProfileScreen() {
   };
 
   const save = async () => {
-    if (!fullName.trim()) return Alert.alert('Required', 'Please enter your name.');
+    if (!fullName.trim()) return appAlert('Required', 'Please enter your name.');
     setSaving(true);
     try {
       const form = new FormData();
@@ -52,10 +51,10 @@ export default function EditProfileScreen() {
       }
       const res = await api.put('/customer/profile', form);
       if (res.data.user) dispatch(setUser(res.data.user));
-      Alert.alert('Saved', 'Your profile has been updated.');
+      appAlert('Saved', 'Your profile has been updated.');
       router.back();
     } catch (e) {
-      Alert.alert('Failed', getApiError(e, 'Could not update profile'));
+      appAlert('Failed', getApiError(e, 'Could not update profile'));
     } finally {
       setSaving(false);
     }
